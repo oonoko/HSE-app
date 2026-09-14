@@ -1,0 +1,23 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useApp } from '@/lib/context'
+import Icon from '@/components/ui/Icon'
+import { mongoliaDate } from '@/lib/date'
+
+type DashboardData = { assigned:number;completed:number;missing:number;completion_rate:number;average_score:number;leaderboard:Array<{id:string;sap_id:string;name:string;shift_number?:number;quiz_score:number;game_score:number;total:number}>;question_analysis:Array<{question_id:string;text:string,total:number;correct:number;accuracy:number}>;game_attempts:Array<unknown> }
+const maskName=(name:string)=>name.split(' ').map(part=>part[0]+'•'.repeat(Math.max(2,part.length-1))).join(' ')
+
+export default function AdminDashboardPage(){
+ const{user,ready,isAdmin}=useApp();const router=useRouter();const[date,setDate]=useState(mongoliaDate());const[shift,setShift]=useState('');const[data,setData]=useState<DashboardData|null>(null);const[presentation,setPresentation]=useState(false);const[showSap,setShowSap]=useState(false)
+ useEffect(()=>{if(!ready)return;if(!user){router.push('/login');return}if(!isAdmin){router.push('/');return}fetch(`/api/dashboard?date=${date}${shift?`&shift=${shift}`:''}`).then(r=>r.json()).then(result=>setData(result.data??null))},[ready,user,isAdmin,router,date,shift]);if(!user||!isAdmin)return null
+ function exportCsv(){if(!data)return;const rows=[['Rank','SAP','Name','Shift','Quiz','Game','Total'],...data.leaderboard.map((x,i)=>[i+1,x.sap_id,x.name,x.shift_number||'',x.quiz_score,x.game_score,x.total])];const csv=rows.map(r=>r.join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=`hse-dashboard-${date}.csv`;a.click()}
+ const leaders=data?.leaderboard??[]
+ return <div className={`app-container admin-page page-enter ${presentation?'presentation-mode':''}`}><div className="page-heading-row"><div><span className="eyebrow">БОДИТ ЦАГИЙН ТАЙЛАН</span><h1>Dashboard</h1><p>Өдрийн асуумж болон тоглоомын нэгтгэл</p></div><div className="toolbar"><button className="btn-quiet" onClick={()=>setPresentation(!presentation)}>{presentation?'Дотоод харагдац':'Хүмүүст харуулах'}</button><button className="btn-secondary" onClick={exportCsv}>CSV татах</button></div></div>
+ <div className="filter-bar"><label>Огноо<input type="date" value={date} onChange={e=>setDate(e.target.value)}/></label><label>Ээлж<select value={shift} onChange={e=>setShift(e.target.value)}><option value="">Бүх ээлж</option>{[1,2,3,4].map(n=><option key={n} value={n}>{n}-р ээлж</option>)}</select></label>{presentation&&<label className="toggle"><input type="checkbox" checked={showSap} onChange={e=>setShowSap(e.target.checked)}/><span/>SAP харуулах</label>}</div>
+ {!data?<div className="empty-state"><span className="spinner"/></div>:<><div className="kpi-grid"><div><span>Оролцоо</span><strong>{data.completion_rate}%</strong><small>{data.completed}/{data.assigned} жолооч</small></div><div><span>Дундаж</span><strong>{data.average_score}%</strong><small>асуумжийн дүн</small></div><div><span>Өгөөгүй</span><strong>{data.missing}</strong><small>жолооч</small></div><div><span>Тоглолт</span><strong>{data.game_attempts.length}</strong><small>нийт оролдлого</small></div></div>
+ <section className="dashboard-grid"><div className="card dashboard-card"><div className="section-heading"><div><span className="eyebrow">ӨДРИЙН ОНОО</span><h2>Top жолоочид</h2></div>{!presentation&&<span className="privacy-note"><Icon name="lock" size={15}/>Дотоод мэдээлэл</span>}</div><div className="top-three">{leaders.slice(0,3).map((x,i)=><div key={x.id} className={`top-person place-${i+1}`}><span>{i+1}</span><strong>{x.name}</strong><small>{showSap||!presentation?`SAP ${x.sap_id}`:''}</small><b>{x.total}</b></div>)}</div><div className="rank-table">{leaders.slice(3).map((x,i)=><div key={x.id}><span>{i+4}</span><div><strong>{presentation?maskName(x.name):x.name}</strong><small>{presentation?(showSap?`SAP ${x.sap_id}`:'SAP нууцлагдсан'):`SAP ${x.sap_id} · ${x.shift_number||'—'}-р ээлж`}</small></div><b>{x.total}</b></div>)}</div></div>
+ <div className="card dashboard-card"><div className="section-heading"><div><span className="eyebrow">АНАЛИЗ</span><h2>Дахин давтах асуултууд</h2></div></div>{data.question_analysis.length===0?<div className="empty-mini">Хариултын мэдээлэл алга</div>:data.question_analysis.slice(0,6).map(q=><div className="analysis-row" key={q.question_id}><div><strong>{q.text}</strong><small>{q.correct}/{q.total} зөв</small></div><div className="accuracy"><span style={{width:`${q.accuracy}%`}}/><b>{q.accuracy}%</b></div></div>)}</div></section></>}
+ </div>
+}

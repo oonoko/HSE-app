@@ -1,0 +1,40 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { useApp } from '@/lib/context'
+import Icon from '@/components/ui/Icon'
+import type { DailyQuiz, DailyQuizQuestion, QuizStatus } from '@/types'
+import { mongoliaDate } from '@/lib/date'
+
+const blankQuestion = (): DailyQuizQuestion => ({ id: crypto.randomUUID(), text: '', options: [{ text: '' }, { text: '' }, { text: '' }], correct_index: 0, explanation: '' })
+
+export default function AdminQuizzesPage() {
+  const { user, ready, isAdmin } = useApp(); const router = useRouter(); const [quizzes, setQuizzes] = useState<DailyQuiz[]>([]); const [showBuilder, setShowBuilder] = useState(false)
+  const blankForm = () => ({ title: '', topic: '', active_date: mongoliaDate(Date.now()+86400000), start_time: '00:00', end_time: '23:59', time_limit_seconds: 60, target_shift: '', status: 'scheduled' as QuizStatus })
+  const [form, setForm] = useState(blankForm())
+  const [questions, setQuestions] = useState<DailyQuizQuestion[]>([blankQuestion()]); const [saving, setSaving] = useState(false); const [error, setError] = useState('')
+  const [editingId, setEditingId] = useState<string | null>(null)
+  function load() { fetch('/api/daily-quizzes?admin=true').then(r=>r.json()).then(data=>setQuizzes(data.data??[])) }
+  useEffect(()=>{ if(!ready)return; if(!user){router.push('/login');return} if(!isAdmin){router.push('/');return} load() },[ready,user,isAdmin,router])
+  if(!user||!isAdmin)return null
+  function updateQuestion(index:number, patch:Partial<DailyQuizQuestion>){setQuestions(list=>list.map((q,i)=>i===index?{...q,...patch}:q))}
+  function updateOption(qIndex:number,oIndex:number,text:string){setQuestions(list=>list.map((q,i)=>i===qIndex?{...q,options:q.options.map((o,j)=>j===oIndex?{text}:o) as DailyQuizQuestion['options']}:q))}
+  async function uploadImage(index:number,file:File){const body=new FormData();body.append('file',file);const response=await fetch('/api/uploads',{method:'POST',body});const result=await response.json();if(response.ok)updateQuestion(index,{image_url:result.data.publicUrl});else setError(result.error)}
+  function startNew(){ setEditingId(null); setError(''); setQuestions([blankQuestion()]); setForm(blankForm()); setShowBuilder(true) }
+  function closeBuilder(){ setShowBuilder(false); setEditingId(null) }
+  function editQuiz(quiz: DailyQuiz){
+    setEditingId(quiz.id); setError('')
+    setForm({ title: quiz.title, topic: quiz.topic || '', active_date: quiz.active_date, start_time: quiz.start_time.slice(0,5), end_time: quiz.end_time.slice(0,5), time_limit_seconds: quiz.time_limit_seconds, target_shift: quiz.target_shift ? String(quiz.target_shift) : '', status: quiz.status })
+    setQuestions(quiz.questions.map(q => ({ ...q })))
+    setShowBuilder(true)
+  }
+  async function save(){setSaving(true);setError('');try{const response=await fetch('/api/daily-quizzes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...form,id:editingId||undefined,target_shift:form.target_shift?Number(form.target_shift):null,questions,created_by:user!.id})});const result=await response.json();if(!response.ok)throw new Error(result.error);setShowBuilder(false);setEditingId(null);setQuestions([blankQuestion()]);setForm(blankForm());load()}catch(err){setError(err instanceof Error?err.message:'Хадгалж чадсангүй')}finally{setSaving(false)}}
+  return <div className="app-container admin-page page-enter"><div className="page-heading-row"><div><span className="eyebrow">HSE ХЭСЭГ</span><h1>Өдрийн асуумж</h1><p>Товлосон өдөр автоматаар нээгдэнэ.</p></div><button className="btn-primary" onClick={()=>showBuilder?closeBuilder():startNew()}><Icon name={showBuilder?'chevron':'plus'} size={18}/>{showBuilder?'Жагсаалт':'Шинэ асуумж'}</button></div>
+    {showBuilder?<div className="builder-layout"><section className="builder-card card"><h2>{editingId?'Асуумж засах':'Ерөнхий тохиргоо'}</h2><div className="form-grid"><label>Асуумжийн нэр<input className="input-field" value={form.title} onChange={e=>setForm({...form,title:e.target.value})}/></label><label>Сургалтын сэдэв<input className="input-field" value={form.topic} onChange={e=>setForm({...form,topic:e.target.value})}/></label><label>Ажиллах өдөр<input type="date" className="input-field" value={form.active_date} onChange={e=>setForm({...form,active_date:e.target.value})}/></label><label>Зорилтот ээлж<select className="input-field" value={form.target_shift} onChange={e=>setForm({...form,target_shift:e.target.value})}><option value="">Бүх ээлж</option>{[1,2,3,4].map(n=><option key={n} value={n}>{n}-р ээлж</option>)}</select></label><label>Эхлэх цаг<input type="time" className="input-field" value={form.start_time} onChange={e=>setForm({...form,start_time:e.target.value})}/></label><label>Хаах цаг<input type="time" className="input-field" value={form.end_time} onChange={e=>setForm({...form,end_time:e.target.value})}/></label><label>Нэг асуултын хугацаа<select className="input-field" value={form.time_limit_seconds} onChange={e=>setForm({...form,time_limit_seconds:Number(e.target.value)})}>{[30,45,60].map(n=><option key={n} value={n}>{n} секунд</option>)}</select></label></div></section>
+      <div className="stack-lg">{questions.map((q,qi)=><section className="builder-card card" key={q.id}><div className="builder-title"><h2>Асуулт {qi+1}</h2>{questions.length>1&&<button className="text-button danger" onClick={()=>setQuestions(list=>list.filter((_,i)=>i!==qi))}>Устгах</button>}</div><label className="image-upload-small"><Icon name="image"/><span>{q.image_url?'Зураг орсон':'Асуултын зураг оруулах'}</span><input type="file" accept="image/*" onChange={e=>e.target.files?.[0]&&uploadImage(qi,e.target.files[0])}/></label>{q.image_url&&<img className="question-preview" src={q.image_url} alt=""/>}<label>Асуулт<textarea className="input-field" rows={3} value={q.text} onChange={e=>updateQuestion(qi,{text:e.target.value})}/></label><div className="option-editor">{q.options.map((option,oi)=><label key={oi} className={q.correct_index===oi?'selected':''}><input type="radio" name={`correct-${q.id}`} checked={q.correct_index===oi} onChange={()=>updateQuestion(qi,{correct_index:oi})}/><span>{String.fromCharCode(65+oi)}</span><input className="input-field" placeholder={`Хариулт ${oi+1}`} value={option.text} onChange={e=>updateOption(qi,oi,e.target.value)}/><small>Зөв</small></label>)}</div><label>Тайлбар<input className="input-field" value={q.explanation} onChange={e=>updateQuestion(qi,{explanation:e.target.value})} placeholder="Зөв хариултын тайлбар"/></label></section>)}</div>
+      <button className="btn-secondary add-block" onClick={()=>setQuestions(list=>[...list,blankQuestion()])}><Icon name="plus" size={18}/>Асуулт нэмэх</button>{error&&<div className="form-error">{error}</div>}<button className="btn-primary publish-button" disabled={saving} onClick={save}>{saving?'Хадгалж байна...':editingId?'Асуумж хадгалах':`${questions.length} асуулттай асуумж нийтлэх`}</button></div>
+      :<div className="admin-list">{quizzes.length===0?<div className="empty-state card"><Icon name="clipboard" size={40}/><h2>Асуумж байхгүй</h2><p>Эхний асуумжаа үүсгэнэ үү.</p></div>:quizzes.map(quiz=><article key={quiz.id} className="list-card quiz-list-card card"><div className="list-icon"><Icon name="clipboard"/></div><div><span className="status-pill scheduled">{quiz.status}</span><h2>{quiz.title}</h2><p>{quiz.active_date} · {quiz.target_shift?`${quiz.target_shift}-р ээлж`:'Бүх ээлж'} · {quiz.questions.length} асуулт</p></div><div className="list-actions"><button className="btn-secondary" onClick={()=>editQuiz(quiz)}>Засах</button><Link className="btn-secondary present-link" href={`/admin/quizzes/present?id=${quiz.id}`} target="_blank">Дэлгэцээр харуулах</Link></div></article>)}</div>}
+  </div>
+}
