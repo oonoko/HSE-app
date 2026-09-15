@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import sharp from 'sharp'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAdmin } from '@/lib/session'
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024
+const MAX_DIMENSION = 1600
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,12 +22,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Зураг 10 MB-аас бага байх ёстой' }, { status: 400 })
     }
 
-    const extension = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg'
-    const path = `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${extension}`
+    const original = Buffer.from(await file.arrayBuffer())
+    const compressed = await sharp(original)
+      .rotate()
+      .resize({ width: MAX_DIMENSION, height: MAX_DIMENSION, fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 78, mozjpeg: true })
+      .toBuffer()
+
+    const path = `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.jpg`
     const supabase = createAdminClient()
     const { error } = await supabase.storage
       .from('hazard-images')
-      .upload(path, file, { contentType: file.type, upsert: false })
+      .upload(path, compressed, { contentType: 'image/jpeg', upsert: false })
 
     if (error) throw error
     const { data } = supabase.storage.from('hazard-images').getPublicUrl(path)
