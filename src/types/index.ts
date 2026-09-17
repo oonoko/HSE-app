@@ -24,7 +24,7 @@ export interface User {
 
 export type QuizStatus = 'draft' | 'scheduled' | 'active' | 'closed'
 export type GameTemplate = 'truth_false' | 'match' | 'puzzle' | 'random_box'
-export type GameCategory = 'critical_risk_22' | 'life_rules_7'
+export type GameCategory = 'critical_risk_22' | 'life_rules_7' | 'other'
 
 export interface DailyQuizOption {
   text: string

@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getSession, requireAdmin } from '@/lib/session'
 
 const templates = new Set(['truth_false', 'match', 'puzzle', 'random_box'])
-const categories = new Set(['critical_risk_22', 'life_rules_7'])
+const categories = new Set(['critical_risk_22', 'life_rules_7', 'other'])
 
 function validContent(template: string, content: Record<string, unknown>) {
   if (template === 'puzzle') return typeof content.image_url === 'string' && content.image_url.length > 0
@@ -59,5 +59,21 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('Games POST failed:', error instanceof Error ? error.message : error)
     return NextResponse.json({ error: 'Тоглоом хадгалж чадсангүй' }, { status: 500 })
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const admin = await requireAdmin()
+    if (!admin) return NextResponse.json({ error: 'HSE-ийн эрх шаардлагатай' }, { status: 403 })
+    const id = new URL(req.url).searchParams.get('id')
+    if (!id) return NextResponse.json({ error: 'Тоглоомын ID шаардлагатай' }, { status: 400 })
+    const supabase = createAdminClient()
+    const { error } = await supabase.from('safety_games').delete().eq('id', id)
+    if (error) throw error
+    return NextResponse.json({ ok: true })
+  } catch (error) {
+    console.error('Games DELETE failed:', error instanceof Error ? error.message : error)
+    return NextResponse.json({ error: 'Тоглоом устгаж чадсангүй' }, { status: 500 })
   }
 }

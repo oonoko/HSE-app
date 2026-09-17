@@ -54,7 +54,7 @@ create table if not exists public.quiz_answers (
 create table if not exists public.safety_games (
   id         uuid primary key default uuid_generate_v4(),
   title      text not null,
-  category   text not null check (category in ('critical_risk_22', 'life_rules_7')),
+  category   text not null check (category in ('critical_risk_22', 'life_rules_7', 'other')),
   template   text not null check (template in ('truth_false', 'match', 'puzzle', 'random_box')),
   content    jsonb not null default '{}',
   active     boolean not null default true,
