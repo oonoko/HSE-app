@@ -7,6 +7,23 @@ import { useApp } from '@/lib/context'
 import Icon from '@/components/ui/Icon'
 import type { DailyQuiz, QuizAttempt } from '@/types'
 import { mongoliaDate } from '@/lib/date'
+import { pushSupported, subscribeToPush } from '@/lib/push-client'
+
+function NotifyBanner() {
+  const [visible, setVisible] = useState(false)
+  useEffect(() => {
+    if (!pushSupported()) return
+    if (Notification.permission === 'default' && !localStorage.getItem('hse_push_dismissed')) setVisible(true)
+  }, [])
+  async function enable() { await subscribeToPush(); setVisible(false) }
+  function dismiss() { localStorage.setItem('hse_push_dismissed', '1'); setVisible(false) }
+  if (!visible) return null
+  return <section className="card notify-banner">
+    <Icon name="bell" size={22} />
+    <div><strong>Сануулга идэвхжүүлэх үү?</strong><small>Өдрийн асуумж нээгдэхэд мэдэгдэл илгээе.</small></div>
+    <div className="button-row"><button className="btn-quiet" onClick={dismiss}>Үгүй</button><button className="btn-primary" onClick={enable}>Идэвхжүүлэх</button></div>
+  </section>
+}
 
 export default function TodayPage() {
   const { user, ready } = useApp()
@@ -38,6 +55,8 @@ export default function TodayPage() {
         <div><span className="eyebrow">ӨНӨӨДӨР</span><h1>Сайн байна уу, {user.name.split(' ')[0]}</h1><p>Өнөөдрийн мэдлэг шалгах асуумж</p></div>
         <div className="date-chip"><Icon name="calendar" size={18} /><span>{new Intl.DateTimeFormat('mn-MN', { month: 'short', day: 'numeric' }).format(new Date())}</span></div>
       </section>
+
+      <NotifyBanner />
 
       {loading ? <div className="empty-state"><span className="spinner" />Асуумжийг шалгаж байна...</div> : quizzes.length === 0 ? (
         <section className="empty-state card"><Icon name="clipboard" size={38} /><h2>Өнөөдрийн асуумж ороогүй байна</h2><p>Та мэдлэг сэргээх тоглоомоор оноогоо нэмэх боломжтой.</p><Link href="/games" className="btn-secondary">Тоглоом руу орох</Link></section>

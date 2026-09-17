@@ -1,4 +1,4 @@
-type IconName = 'clipboard' | 'game' | 'trophy' | 'user' | 'plus' | 'dashboard' | 'shift' | 'logout' | 'users' | 'clock' | 'calendar' | 'check' | 'chevron' | 'lock' | 'image'
+type IconName = 'clipboard' | 'game' | 'trophy' | 'user' | 'plus' | 'dashboard' | 'shift' | 'logout' | 'users' | 'clock' | 'calendar' | 'check' | 'chevron' | 'lock' | 'image' | 'bell'
 
 export default function Icon({ name, size = 22, strokeWidth = 1.8 }: { name: IconName; size?: number; strokeWidth?: number }) {
   const common = { fill: 'none', stroke: 'currentColor', strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, strokeWidth }
@@ -18,6 +18,7 @@ export default function Icon({ name, size = 22, strokeWidth = 1.8 }: { name: Ico
     chevron: <path d="m9 6 6 6-6 6" {...common}/>,
     lock: <><rect x="5" y="10" width="14" height="11" rx="2" {...common}/><path d="M8 10V7a4 4 0 0 1 8 0v3" {...common}/></>,
     image: <><rect x="3" y="4" width="18" height="16" rx="2" {...common}/><circle cx="8.5" cy="9" r="1.5" {...common}/><path d="m3 17 5-5 4 4 3-3 6 6" {...common}/></>,
+    bell: <><path d="M6 9a6 6 0 0 1 12 0c0 4 1.5 5.5 1.5 5.5H4.5S6 13 6 9Z" {...common}/><path d="M10 19a2 2 0 0 0 4 0" {...common}/></>,
   }
   return <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24">{paths[name]}</svg>
 }
