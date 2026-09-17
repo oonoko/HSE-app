@@ -1,9 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getSession } from '@/lib/session'
+import { getSession, requireAdmin } from '@/lib/session'
+
+async function getReport(req: NextRequest) {
+  const admin = await requireAdmin()
+  if (!admin) return NextResponse.json({ error: 'HSE-ийн эрх шаардлагатай' }, { status: 403 })
+  const { searchParams } = new URL(req.url)
+  const gameId = searchParams.get('game_id')
+  if (!gameId) return NextResponse.json({ error: 'Тоглоомын ID шаардлагатай' }, { status: 400 })
+  const date = searchParams.get('date') || new Date().toISOString().slice(0, 10)
+  const shift = searchParams.get('shift')
+  const start = new Date(`${date}T00:00:00+08:00`).toISOString()
+  const end = new Date(`${date}T23:59:59+08:00`).toISOString()
+  const supabase = createAdminClient()
+
+  let usersQuery = supabase.from('users').select('id, sap_id, name, shift_number').eq('role', 'driver')
+  if (shift) usersQuery = usersQuery.eq('shift_number', Number(shift))
+  const [{ data: game, error: gameError }, { data: users, error: usersError }, { data: attempts, error: attemptsError }] = await Promise.all([
+    supabase.from('safety_games').select('id, title, template, category').eq('id', gameId).single(),
+    usersQuery,
+    supabase.from('game_attempts').select('*').eq('game_id', gameId).gte('played_at', start).lte('played_at', end),
+  ])
+  if (gameError) throw gameError
+  if (usersError) throw usersError
+  if (attemptsError) throw attemptsError
+
+  const attemptByUser = new Map((attempts ?? []).map(a => [a.user_id, a]))
+  const players = (users ?? [])
+    .filter(u => attemptByUser.has(u.id))
+    .map(u => ({ ...u, ...attemptByUser.get(u.id) }))
+    .sort((a, b) => b.score - a.score)
+  const missing = (users ?? []).filter(u => !attemptByUser.has(u.id))
+
+  return NextResponse.json({ data: { game, date, shift: shift ? Number(shift) : null, players, missing } })
+}
 
 export async function GET(req: NextRequest) {
   try {
+    if (new URL(req.url).searchParams.get('admin') === 'true') return await getReport(req)
     const session = await getSession()
     if (!session) return NextResponse.json({ error: 'Нэвтрэх шаардлагатай' }, { status: 401 })
     const { searchParams } = new URL(req.url)
