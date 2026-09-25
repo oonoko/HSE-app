@@ -5,33 +5,12 @@ import { useRouter } from 'next/navigation'
 import { useApp } from '@/lib/context'
 import Icon from '@/components/ui/Icon'
 import type { Location, User } from '@/types'
+import { parseCsv } from '@/lib/csv'
 
 type UserForm = { id?: string; sap_id: string; name: string; department: string; location_id: string; shift_number: string }
 const emptyForm = (locationId = ''): UserForm => ({ sap_id: '', name: '', department: 'Жолооч', location_id: locationId, shift_number: '1' })
 
 type ImportRow = { sap_id: string; name: string; shift_number: string; error?: string }
-
-function parseCsv(text: string): string[][] {
-  const rows: string[][] = []
-  let field = '', row: string[] = [], inQuotes = false
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i]
-    if (inQuotes) {
-      if (char === '"') { if (text[i + 1] === '"') { field += '"'; i++ } else inQuotes = false }
-      else field += char
-    } else if (char === '"') inQuotes = true
-    else if (char === ',') { row.push(field); field = '' }
-    else if (char === '\n' || char === '\r') {
-      if (char === '\r' && text[i + 1] === '\n') i++
-      row.push(field); field = ''
-      if (row.some(cell => cell.trim())) rows.push(row)
-      row = []
-    } else field += char
-  }
-  row.push(field)
-  if (row.some(cell => cell.trim())) rows.push(row)
-  return rows
-}
 
 function downloadCsvTemplate() {
   const csv = 'sap_id,name,shift_number\n1234567,Бат Бат,1\n7654321,Дорж Дорж,2'

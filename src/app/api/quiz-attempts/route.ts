@@ -3,6 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import type { DailyQuizQuestion } from '@/types'
 import { getSession } from '@/lib/session'
 import { mongoliaDate, mongoliaTime } from '@/lib/date'
+import { calculatePoints } from '@/lib/scoring'
+import { isQuizOpenForDriver } from '@/lib/quiz-window'
 
 export async function GET(req: NextRequest) {
   try {
@@ -37,7 +39,7 @@ export async function POST(req: NextRequest) {
       const { data: quiz, error: quizError } = await supabase.from('daily_quizzes').select('*').eq('id', body.quiz_id).single()
       if (quizError) throw quizError
       if (session.role !== 'admin') {
-        const allowed = quiz.active_date === mongoliaDate() && ['scheduled', 'active'].includes(quiz.status) && (!quiz.target_shift || quiz.target_shift === session.shift_number) && quiz.start_time.slice(0, 5) <= mongoliaTime() && quiz.end_time.slice(0, 5) >= mongoliaTime()
+        const allowed = isQuizOpenForDriver(quiz, { date: mongoliaDate(), time: mongoliaTime(), shiftNumber: session.shift_number })
         if (!allowed) return NextResponse.json({ error: 'Энэ асуумж одоо ажиллахгүй байна' }, { status: 403 })
       }
       const { data: existing, error: existingError } = await supabase.from('quiz_attempts').select('*').eq('quiz_id', body.quiz_id).eq('user_id', body.user_id).maybeSingle()
@@ -65,7 +67,7 @@ export async function POST(req: NextRequest) {
       const responseMs = Math.max(0, Math.min(Number(body.response_ms) || 0, attempt.quiz.time_limit_seconds * 1000))
       const isCorrect = selectedIndex === question.correct_index
       const timeLimitMs = attempt.quiz.time_limit_seconds * 1000
-      const points = isCorrect ? 50 + Math.ceil(((timeLimitMs - responseMs) / timeLimitMs) * 50) : 0
+      const points = calculatePoints(isCorrect, responseMs, timeLimitMs)
       const { data, error } = await supabase.from('quiz_answers').insert({
         attempt_id: body.attempt_id,
         question_id: body.question_id,
