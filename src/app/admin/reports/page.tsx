@@ -2,16 +2,26 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useApp } from '@/lib/context'
-import type { User, DailySession, HazardImage } from '@/types'
+import Icon from '@/components/ui/Icon'
+import type { User } from '@/types'
+
+type ReportsData = {
+  total_quizzes: number
+  total_quiz_attempts: number
+  avg_quiz_percent: number
+  total_games: number
+  total_game_attempts: number
+  recent_attempts: Array<{ id: string; score: number; max_score: number; completed_at: string; user?: { name: string; sap_id: string; shift_number?: number }; quiz?: { title: string } }>
+}
 
 export default function AdminReportsPage() {
-  const { user, ready, lang, isAdmin } = useApp()
+  const { user, ready, isAdmin } = useApp()
   const router = useRouter()
-  const [loaded, setLoaded] = useState(false)
-  const [workers, setWorkers] = useState<User[]>([])
-  const [sessions, setSessions] = useState<DailySession[]>([])
-  const [images, setImages] = useState<HazardImage[]>([])
+  const [drivers, setDrivers] = useState<User[]>([])
+  const [reports, setReports] = useState<ReportsData | null>(null)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     if (!ready) return
@@ -19,127 +29,66 @@ export default function AdminReportsPage() {
     if (!isAdmin) { router.push('/'); return }
     Promise.all([
       fetch('/api/users').then(r => r.json()),
-      fetch('/api/sessions?all=true').then(r => r.json()),
-      fetch('/api/images').then(r => r.json()),
-    ]).then(([usersResult, sessionsResult, imagesResult]) => {
-      setWorkers((usersResult.data ?? []).filter((item: User) => item.role !== 'admin'))
-      setSessions(sessionsResult.data ?? [])
-      setImages(imagesResult.data ?? [])
-    }).finally(() => setLoaded(true))
+      fetch('/api/reports').then(r => r.json()),
+    ]).then(([usersResult, reportsResult]) => {
+      if (usersResult.error) throw new Error(usersResult.error)
+      if (reportsResult.error) throw new Error(reportsResult.error)
+      setDrivers((usersResult.data as User[]).filter(item => item.role === 'driver'))
+      setReports(reportsResult.data)
+    }).catch(err => setError(err instanceof Error ? err.message : 'Мэдээлэл авч чадсангүй'))
   }, [ready, user, isAdmin, router])
 
-  if (!user || !isAdmin || !loaded) return null
+  if (!user || !isAdmin) return null
+  if (error) return <div className="app-container admin-page"><div className="empty-state card"><h2>Алдаа гарлаа</h2><p>{error}</p></div></div>
+  if (!reports) return <div className="empty-state"><span className="spinner" /></div>
 
-  const totalWorkers = workers.length
-  const totalImages = images.length
-  const completedToday = sessions.filter(s => {
-    const today = new Date().toISOString().split('T')[0]
-    return s.date === today && s.completed
-  }).length
-  const completionRate = totalWorkers > 0 ? Math.round((completedToday / totalWorkers) * 100) : 0
+  const leaders = [...drivers].sort((a, b) => b.total_score - a.total_score).slice(0, 10)
+  const shiftStats = [1, 2, 3, 4].map(n => {
+    const shiftDrivers = drivers.filter(d => d.shift_number === n)
+    const avg = shiftDrivers.length ? Math.round(shiftDrivers.reduce((s, d) => s + d.total_score, 0) / shiftDrivers.length) : 0
+    return { shift: n, count: shiftDrivers.length, avg }
+  })
+  const unassigned = drivers.filter(d => !d.shift_number).length
 
-  // Хамгийн олон илрүүлэгдсэн аюулуудын тооцоо (mock)
-  const hazardCounts = images.flatMap(img => img.hazards).reduce<Record<string, number>>((acc, h) => {
-    acc[h.label] = (acc[h.label] ?? 0) + 1
-    return acc
-  }, {})
-
-  const topHazards = Object.entries(hazardCounts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-
-  // Хэлтсийн статистик
-  const deptStats = workers.reduce<Record<string, { count: number; score: number }>>((acc, u) => {
-    if (!acc[u.department]) acc[u.department] = { count: 0, score: 0 }
-    acc[u.department].count++
-    acc[u.department].score += u.total_score
-    return acc
-  }, {})
-
-  return (
-    <div style={{ padding: '0 16px' }}>
-      <h2 style={{ fontSize: 22, fontWeight: 800, color: '#0d2d6b', marginBottom: 4 }}>
-        📊 {lang === 'mn' ? 'Тайлан' : 'Reports'}
-      </h2>
-      <p style={{ color: '#6b7280', fontSize: 14, marginBottom: 20 }}>
-        {lang === 'mn' ? 'Нийт статистик' : 'Overall statistics'}
-      </p>
-
-      {/* KPI cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
-        {[
-          { icon: '👥', value: totalWorkers, label: lang === 'mn' ? 'Нийт жолооч' : 'Total drivers', color: '#0d2d6b' },
-          { icon: '🖼️', value: totalImages, label: lang === 'mn' ? 'Нийт зураг' : 'Total images', color: '#1a4fbe' },
-          { icon: '✅', value: completedToday, label: lang === 'mn' ? 'Өнөөдөр дуусгасан' : 'Completed today', color: '#22c55e' },
-          { icon: '📈', value: `${completionRate}%`, label: lang === 'mn' ? 'Гүйцэтгэлийн хувь' : 'Completion rate', color: '#e8601a' },
-        ].map(k => (
-          <div key={k.label} className="card" style={{ padding: '16px', textAlign: 'center' }}>
-            <div style={{ fontSize: 28, marginBottom: 6 }}>{k.icon}</div>
-            <div style={{ fontWeight: 900, fontSize: 26, color: k.color }}>{k.value}</div>
-            <div style={{ color: '#9ca3af', fontSize: 11, marginTop: 2 }}>{k.label}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Today completion progress */}
-      <div className="card" style={{ padding: '16px 20px', marginBottom: 20 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
-          <span style={{ fontWeight: 700, color: '#0d2d6b' }}>
-            {lang === 'mn' ? 'Өнөөдрийн гүйцэтгэл' : "Today's completion"}
-          </span>
-          <span style={{ fontWeight: 700, color: '#e8601a' }}>{completedToday}/{totalWorkers}</span>
-        </div>
-        <div className="progress-bar" style={{ height: 10 }}>
-          <div className="progress-fill" style={{ width: `${completionRate}%` }} />
-        </div>
-        <div style={{ color: '#9ca3af', fontSize: 12, marginTop: 6 }}>
-          {completionRate}% · {totalWorkers - completedToday} {lang === 'mn' ? 'дутуу' : 'remaining'}
-        </div>
-      </div>
-
-      {/* Top hazards */}
-      <div className="card" style={{ padding: '16px 20px', marginBottom: 20 }}>
-        <h3 style={{ fontWeight: 700, fontSize: 15, color: '#0d2d6b', marginBottom: 12 }}>
-          ⚠️ {lang === 'mn' ? 'Нийтлэг аюулууд' : 'Common hazards'}
-        </h3>
-        {topHazards.map(([label, count], i) => (
-          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-            <div style={{ width: 24, height: 24, borderRadius: '50%', background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#92400e' }}>
-              {i + 1}
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 600 }}>{label}</div>
-              <div className="progress-bar" style={{ marginTop: 4 }}>
-                <div className="progress-fill" style={{ width: `${(count / topHazards[0][1]) * 100}%` }} />
-              </div>
-            </div>
-            <div style={{ fontWeight: 700, color: '#e8601a', fontSize: 14 }}>{count}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Department stats */}
-      <div className="card" style={{ padding: '16px 20px' }}>
-        <h3 style={{ fontWeight: 700, fontSize: 15, color: '#0d2d6b', marginBottom: 12 }}>
-          🏢 {lang === 'mn' ? 'Хэлтсийн статистик' : 'Department stats'}
-        </h3>
-        {Object.entries(deptStats).map(([dept, stat]) => (
-          <div key={dept} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #f1f5f9' }}>
-            <div>
-              <div style={{ fontWeight: 600, fontSize: 14 }}>{dept}</div>
-              <div style={{ color: '#9ca3af', fontSize: 12 }}>
-                {stat.count} {lang === 'mn' ? 'жолооч' : 'drivers'}
-              </div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontWeight: 700, color: '#e8601a', fontSize: 15 }}>
-                {Math.round(stat.score / stat.count)} avg
-              </div>
-              <div style={{ color: '#9ca3af', fontSize: 11 }}>pts/person</div>
-            </div>
-          </div>
-        ))}
-      </div>
+  return <div className="app-container admin-page page-enter">
+    <div className="page-heading-row">
+      <div><span className="eyebrow">ЕРӨНХИЙ ТАЙЛАН</span><h1>Тайлан</h1><p>Бүх цаг үеийн нэгтгэсэн статистик</p></div>
+      <Link href="/admin/dashboard" className="btn-secondary">Өдрийн dashboard</Link>
     </div>
-  )
+
+    <div className="kpi-grid">
+      <div><span>Нийт жолооч</span><strong>{drivers.length}</strong></div>
+      <div><span>Нийт асуумж</span><strong>{reports.total_quizzes}</strong></div>
+      <div><span>Дундаж хувь</span><strong>{reports.avg_quiz_percent}%</strong></div>
+      <div><span>Тоглолт</span><strong>{reports.total_game_attempts}</strong></div>
+    </div>
+
+    <section className="dashboard-grid">
+      <div className="card dashboard-card">
+        <div className="section-heading"><div><span className="eyebrow">ТОП ЖОЛООЧИД</span><h2>Бүх цаг үеийн онооны эрэмбэ</h2></div></div>
+        {leaders.length === 0 ? <div className="empty-mini">Жолооч байхгүй</div> : <>
+          <div className="top-three">{leaders.slice(0, 3).map((x, i) => <div className={`top-person place-${i + 1}`} key={x.id}><span>{i + 1}</span><strong>{x.name}</strong><small>{x.shift_number ? `${x.shift_number}-р ээлж` : 'Ээлжгүй'}</small><b>{x.total_score.toLocaleString()}</b></div>)}</div>
+          <div className="rank-table">{leaders.slice(3).map((x, i) => <div key={x.id}><span>{i + 4}</span><div><strong>{x.name}</strong><small>SAP {x.sap_id} · {x.shift_number ? `${x.shift_number}-р ээлж` : 'Ээлжгүй'}</small></div><b>{x.total_score.toLocaleString()}</b></div>)}</div>
+        </>}
+      </div>
+
+      <div className="card dashboard-card">
+        <div className="section-heading"><div><span className="eyebrow">ЭЭЛЖ БҮРЭЭР</span><h2>Ээлжийн харьцуулалт</h2></div></div>
+        {shiftStats.map(s => <div className="analysis-row" key={s.shift}>
+          <strong>{s.shift}-р ээлж</strong><small>{s.count} жолооч</small>
+          <div className="accuracy"><span style={{ width: `${Math.min(100, s.avg / 10)}%` }} /><b>{s.avg} дундаж оноо</b></div>
+        </div>)}
+        {unassigned > 0 && <div className="empty-mini">{unassigned} жолооч ээлж оноогдоогүй байна.</div>}
+      </div>
+    </section>
+
+    <section className="card dashboard-card" style={{ marginTop: 14 }}>
+      <div className="section-heading"><div><span className="eyebrow">СҮҮЛИЙН ҮЙЛ АЖИЛЛАГАА</span><h2>Сүүлд дууссан асуумжууд</h2></div></div>
+      {reports.recent_attempts.length === 0 ? <div className="empty-mini">Оролдлого алга.</div> : reports.recent_attempts.map(a => <div className="activity-row" key={a.id}>
+        <div className="activity-icon"><Icon name="clipboard" size={19} /></div>
+        <div><strong>{a.user?.name || 'Тодорхойгүй'}</strong><small>{a.quiz?.title || 'Асуумж'} · {new Intl.DateTimeFormat('mn-MN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(a.completed_at))}</small></div>
+        <b>{a.max_score ? Math.round((a.score / a.max_score) * 100) : 0}%</b>
+      </div>)}
+    </section>
+  </div>
 }
