@@ -10,6 +10,11 @@ export async function GET(req: NextRequest) {
     if (!userId) return NextResponse.json({ error: 'user_id шаардлагатай' }, { status: 400 })
     if (session.role !== 'admin' && userId !== session.id) return NextResponse.json({ error: 'Хандах эрхгүй' }, { status: 403 })
     const supabase = createAdminClient()
+    if (session.role === 'admin' && !session.is_super_admin && userId !== session.id && session.shift_number) {
+      const { data: target, error: targetError } = await supabase.from('users').select('shift_number').eq('id', userId).single()
+      if (targetError) throw targetError
+      if (target.shift_number !== session.shift_number) return NextResponse.json({ error: 'Зөвхөн өөрийн ээлжийн жолоочийг харна' }, { status: 403 })
+    }
     const [{ data: user, error: userError }, { data: quizzes, error: quizError }, { data: games, error: gameError }, { data: drivers, error: driversError }] = await Promise.all([
       supabase.from('users').select('*').eq('id', userId).single(),
       supabase.from('quiz_attempts').select('*, quiz:daily_quizzes(title, topic, active_date)').eq('user_id', userId).eq('completed', true).order('completed_at', { ascending: false }),

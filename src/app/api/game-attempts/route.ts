@@ -9,7 +9,7 @@ async function getReport(req: NextRequest) {
   const gameId = searchParams.get('game_id')
   if (!gameId) return NextResponse.json({ error: 'Тоглоомын ID шаардлагатай' }, { status: 400 })
   const date = searchParams.get('date') || new Date().toISOString().slice(0, 10)
-  const shift = searchParams.get('shift')
+  const shift = (!admin.is_super_admin && admin.shift_number) ? String(admin.shift_number) : searchParams.get('shift')
   const start = new Date(`${date}T00:00:00+08:00`).toISOString()
   const end = new Date(`${date}T23:59:59+08:00`).toISOString()
   const supabase = createAdminClient()

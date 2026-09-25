@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getSession, requireAdmin } from '@/lib/session'
+import { getSession, requireAdmin, requireSuperAdmin } from '@/lib/session'
 
 const templates = new Set(['truth_false', 'match', 'puzzle', 'random_box'])
 const categories = new Set(['critical_risk_22', 'life_rules_7', 'other'])
@@ -34,8 +34,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const admin = await requireAdmin()
-    if (!admin) return NextResponse.json({ error: 'HSE-ийн эрх шаардлагатай' }, { status: 403 })
+    const admin = await requireSuperAdmin()
+    if (!admin) return NextResponse.json({ error: 'Зөвхөн ерөнхий админ тоглоом удирдана' }, { status: 403 })
     const body = await req.json()
     if (!body.title?.trim() || !templates.has(body.template) || !categories.has(body.category) || !validContent(body.template, body.content ?? {})) {
       return NextResponse.json({ error: 'Тоглоомын мэдээлэл дутуу байна' }, { status: 400 })
@@ -64,8 +64,8 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const admin = await requireAdmin()
-    if (!admin) return NextResponse.json({ error: 'HSE-ийн эрх шаардлагатай' }, { status: 403 })
+    const admin = await requireSuperAdmin()
+    if (!admin) return NextResponse.json({ error: 'Зөвхөн ерөнхий админ тоглоом устгана' }, { status: 403 })
     const id = new URL(req.url).searchParams.get('id')
     if (!id) return NextResponse.json({ error: 'Тоглоомын ID шаардлагатай' }, { status: 400 })
     const supabase = createAdminClient()

@@ -43,7 +43,8 @@ export default function AdminReportsPage() {
   if (!reports) return <div className="empty-state"><span className="spinner" /></div>
 
   const leaders = [...drivers].sort((a, b) => b.total_score - a.total_score).slice(0, 10)
-  const shiftStats = [1, 2, 3, 4].map(n => {
+  const shiftNumbers = user.is_super_admin ? [1, 2, 3, 4] : user.shift_number ? [user.shift_number] : []
+  const shiftStats = shiftNumbers.map(n => {
     const shiftDrivers = drivers.filter(d => d.shift_number === n)
     const avg = shiftDrivers.length ? Math.round(shiftDrivers.reduce((s, d) => s + d.total_score, 0) / shiftDrivers.length) : 0
     return { shift: n, count: shiftDrivers.length, avg }
@@ -52,7 +53,7 @@ export default function AdminReportsPage() {
 
   return <div className="app-container admin-page page-enter">
     <div className="page-heading-row">
-      <div><span className="eyebrow">ЕРӨНХИЙ ТАЙЛАН</span><h1>Тайлан</h1><p>Бүх цаг үеийн нэгтгэсэн статистик</p></div>
+      <div><span className="eyebrow">{user.is_super_admin?'ЕРӨНХИЙ ТАЙЛАН':'ЭЭЛЖИЙН ТАЙЛАН'}</span><h1>Тайлан</h1><p>{user.is_super_admin?'Бүх цаг үеийн нэгтгэсэн статистик':`${user.shift_number}-р ээлжийн нэгтгэсэн статистик`}</p></div>
       <Link href="/admin/dashboard" className="btn-secondary">Өдрийн dashboard</Link>
     </div>
 
@@ -65,7 +66,7 @@ export default function AdminReportsPage() {
 
     <section className="dashboard-grid">
       <div className="card dashboard-card">
-        <div className="section-heading"><div><span className="eyebrow">ТОП ЖОЛООЧИД</span><h2>Бүх цаг үеийн онооны эрэмбэ</h2></div></div>
+        <div className="section-heading"><div><span className="eyebrow">ТОП ЖОЛООЧИД</span><h2>{user.is_super_admin?'Бүх цаг үеийн онооны эрэмбэ':'Ээлжийн онооны эрэмбэ'}</h2></div></div>
         {leaders.length === 0 ? <div className="empty-mini">Жолооч байхгүй</div> : <>
           <div className="top-three">{leaders.slice(0, 3).map((x, i) => <div className={`top-person place-${i + 1}`} key={x.id}><span>{i + 1}</span><strong>{x.name}</strong><small>{x.shift_number ? `${x.shift_number}-р ээлж` : 'Ээлжгүй'}</small><b>{x.total_score.toLocaleString()}</b></div>)}</div>
           <div className="rank-table">{leaders.slice(3).map((x, i) => <div key={x.id}><span>{i + 4}</span><div><strong>{x.name}</strong><small>SAP {x.sap_id} · {x.shift_number ? `${x.shift_number}-р ээлж` : 'Ээлжгүй'}</small></div><b>{x.total_score.toLocaleString()}</b></div>)}</div>
@@ -73,12 +74,12 @@ export default function AdminReportsPage() {
       </div>
 
       <div className="card dashboard-card">
-        <div className="section-heading"><div><span className="eyebrow">ЭЭЛЖ БҮРЭЭР</span><h2>Ээлжийн харьцуулалт</h2></div></div>
+        <div className="section-heading"><div><span className="eyebrow">{user.is_super_admin?'ЭЭЛЖ БҮРЭЭР':'МИНИЙ ЭЭЛЖ'}</span><h2>{user.is_super_admin?'Ээлжийн харьцуулалт':`${user.shift_number}-р ээлжийн дүн`}</h2></div></div>
         {shiftStats.map(s => <div className="analysis-row" key={s.shift}>
           <strong>{s.shift}-р ээлж</strong><small>{s.count} жолооч</small>
           <div className="accuracy"><span style={{ width: `${Math.min(100, s.avg / 10)}%` }} /><b>{s.avg} дундаж оноо</b></div>
         </div>)}
-        {unassigned > 0 && <div className="empty-mini">{unassigned} жолооч ээлж оноогдоогүй байна.</div>}
+        {user.is_super_admin&&unassigned > 0 && <div className="empty-mini">{unassigned} жолооч ээлж оноогоогүй байна.</div>}
       </div>
     </section>
 

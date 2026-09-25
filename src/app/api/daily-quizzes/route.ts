@@ -36,6 +36,8 @@ export async function GET(req: NextRequest) {
       query = session.shift_number
         ? query.or(`target_shift.is.null,target_shift.eq.${session.shift_number}`)
         : query.is('target_shift', null)
+    } else if (!session.is_super_admin && session.shift_number) {
+      query = query.or(`target_shift.is.null,target_shift.eq.${session.shift_number}`)
     }
 
     const { data, error } = await query
@@ -57,6 +59,17 @@ export async function POST(req: NextRequest) {
     if (!body.title?.trim() || !body.active_date || !validateQuestions(body.questions)) {
       return NextResponse.json({ error: 'Гарчиг, огноо болон бүрэн асуултууд шаардлагатай' }, { status: 400 })
     }
+    const supabase = createAdminClient()
+    if (!admin.is_super_admin && admin.shift_number) {
+      if (body.target_shift && Number(body.target_shift) !== admin.shift_number) {
+        return NextResponse.json({ error: 'Зөвхөн өөрийн ээлжид зориулсан асуумж үүсгэнэ' }, { status: 403 })
+      }
+      if (body.id) {
+        const { data: existing, error: existingError } = await supabase.from('daily_quizzes').select('target_shift').eq('id', body.id).single()
+        if (existingError) throw existingError
+        if (existing.target_shift !== admin.shift_number) return NextResponse.json({ error: 'Зөвхөн өөрийн ээлжийн асуумжийг засна' }, { status: 403 })
+      }
+    }
     const payload = {
       title: body.title.trim(),
       topic: body.topic?.trim() || null,
@@ -64,13 +77,12 @@ export async function POST(req: NextRequest) {
       start_time: body.start_time || '00:00',
       end_time: body.end_time || '23:59',
       time_limit_seconds: Math.min(60, Math.max(10, Number(body.time_limit_seconds) || 60)),
-      target_shift: body.target_shift || null,
+      target_shift: (!admin.is_super_admin && admin.shift_number) ? admin.shift_number : (body.target_shift || null),
       status: body.status || 'scheduled',
       questions: body.questions,
       created_by: admin.id,
       updated_at: new Date().toISOString(),
     }
-    const supabase = createAdminClient()
     const operation = body.id
       ? supabase.from('daily_quizzes').update(payload).eq('id', body.id)
       : supabase.from('daily_quizzes').insert(payload)

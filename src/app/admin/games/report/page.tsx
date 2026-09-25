@@ -51,7 +51,7 @@ function GameReport() {
     <div className="filter-bar">
       <label>Тоглоом<select className="input-field" value={selectedId} onChange={e => setSelectedId(e.target.value)}>{games.map(g => <option key={g.id} value={g.id}>{g.title}</option>)}</select></label>
       <label>Огноо<input type="date" value={date} onChange={e => setDate(e.target.value)} /></label>
-      <label>Ээлж<select value={shift} onChange={e => setShift(e.target.value)}><option value="">Бүх ээлж</option>{[1, 2, 3, 4].map(n => <option key={n} value={n}>{n}-р ээлж</option>)}</select></label>
+      {user.is_super_admin?<label>Ээлж<select value={shift} onChange={e => setShift(e.target.value)}><option value="">Бүх ээлж</option>{[1, 2, 3, 4].map(n => <option key={n} value={n}>{n}-р ээлж</option>)}</select></label>:<label>Ээлж<input className="input-field" value={`${user.shift_number}-р ээлж`} disabled/></label>}
     </div>
 
     {error && <div className="form-error">{error}</div>}

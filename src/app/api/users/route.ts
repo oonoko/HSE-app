@@ -4,12 +4,12 @@ import { requireAdmin, requireSuperAdmin } from '@/lib/session'
 
 export async function GET() {
   try {
-    if (!await requireAdmin()) return NextResponse.json({ error: 'Нэвтрэх шаардлагатай' }, { status: 401 })
+    const admin = await requireAdmin()
+    if (!admin) return NextResponse.json({ error: 'Нэвтрэх шаардлагатай' }, { status: 401 })
     const supabase = createAdminClient()
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .order('name')
+    let query = supabase.from('users').select('*').order('name')
+    if (!admin.is_super_admin && admin.shift_number) query = query.eq('shift_number', admin.shift_number)
+    const { data, error } = await query
 
     if (error) throw error
     return NextResponse.json({ data })

@@ -14,7 +14,7 @@ export default function Header() {
     <header className="app-header">
       <div className="header-brand">
         <Image src="/brand/logo.jpg" alt="Ханбогд Хурд" width={48} height={48} className="header-logo" />
-        <div><strong>HSE Safety</strong><span>{user?.role === 'admin' ? 'HSE-ийн удирдлага' : `Жолооч · ${user?.shift_number ? `${user.shift_number}-р ээлж` : 'Ээлж оноогоогүй'}`}</span></div>
+        <div><strong>HSE Safety</strong><span>{user?.role === 'admin' ? (user.is_super_admin ? 'Ерөнхий HSE удирдлага' : `${user.shift_number ? `${user.shift_number}-р ээлжийн ` : ''}HSE`) : `Жолооч · ${user?.shift_number ? `${user.shift_number}-р ээлж` : 'Ээлж оноогоогүй'}`}</span></div>
       </div>
       <div className="header-user">
         <div><strong>{user?.name}</strong><span>SAP {user?.sap_id}</span></div>
