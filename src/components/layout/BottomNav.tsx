@@ -18,7 +18,8 @@ export default function BottomNav() {
     { href: '/admin/quizzes', icon: 'clipboard' as const, label: 'Асуумж' },
     { href: '/admin/games', icon: 'game' as const, label: 'Тоглоом' },
     { href: '/admin/dashboard', icon: 'dashboard' as const, label: 'Dashboard' },
-    { href: '/admin/my-shift', icon: 'shift' as const, label: 'Миний ээлж' },
+    { href: '/admin/reports', icon: 'trophy' as const, label: 'Тайлан' },
+    { href: '/admin/my-shift', icon: 'shift' as const, label: 'Ээлж' },
   ]
   const items = isAdmin ? adminItems : driverItems
   return (
