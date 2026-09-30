@@ -3,7 +3,7 @@ alter table public.users add column if not exists shift_number smallint;
 alter table public.users add column if not exists is_super_admin boolean not null default false;
 alter table public.users drop constraint if exists users_shift_number_check;
 alter table public.users add constraint users_shift_number_check
-  check (shift_number is null or shift_number between 1 and 4);
+  check (shift_number is null or shift_number between 1 and 5);
 update public.users set is_super_admin = (sap_id = '1113196');
 
 -- Daily knowledge checks. Questions are authored and versioned with the quiz.
@@ -15,7 +15,7 @@ create table if not exists public.daily_quizzes (
   start_time         time not null default '00:00',
   end_time           time not null default '23:59',
   time_limit_seconds integer not null default 60 check (time_limit_seconds between 10 and 60),
-  target_shift       smallint check (target_shift is null or target_shift between 1 and 4),
+  target_shift       smallint check (target_shift is null or target_shift between 1 and 5),
   status             text not null default 'draft' check (status in ('draft', 'scheduled', 'active', 'closed')),
   questions          jsonb not null default '[]',
   created_by         uuid not null references public.users(id),

@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAdmin } from '@/lib/session'
+import { SHIFT_NUMBERS } from '@/lib/shifts'
 
 export async function GET(req: NextRequest){
  try{
   const admin=await requireAdmin();if(!admin)return NextResponse.json({error:'HSE-ийн эрх шаардлагатай'},{status:403})
-  const shift=Number(new URL(req.url).searchParams.get('shift'));if(!shift||shift<1||shift>4)return NextResponse.json({error:'Ээлж сонгоно уу'},{status:400})
+  const shift=Number(new URL(req.url).searchParams.get('shift'));if(!shift||!SHIFT_NUMBERS.includes(shift as typeof SHIFT_NUMBERS[number]))return NextResponse.json({error:'Ээлж сонгоно уу'},{status:400})
   if(!admin.is_super_admin&&admin.shift_number!==shift)return NextResponse.json({error:'Зөвхөн өөрийн ээлжийг харна'},{status:403})
   const now=Date.now(),recentStart=new Date(now-7*86400000).toISOString(),previousStart=new Date(now-14*86400000).toISOString();const supabase=createAdminClient()
   const[{data:users,error:ue},{data:quiz,error:qe},{data:games,error:ge}]=await Promise.all([

@@ -7,6 +7,7 @@ import { useApp } from '@/lib/context'
 import Icon from '@/components/ui/Icon'
 import type { SafetyGame } from '@/types'
 import { mongoliaDate } from '@/lib/date'
+import { SHIFT_NUMBERS, shiftLabel, shiftLabelShort } from '@/lib/shifts'
 
 type Player = { id: string; sap_id: string; name: string; shift_number?: number; score: number; duration_seconds: number; played_at: string }
 type ReportData = { game: SafetyGame; date: string; shift: number | null; players: Player[]; missing: Array<{ id: string; sap_id: string; name: string; shift_number?: number }> }
@@ -51,7 +52,7 @@ function GameReport() {
     <div className="filter-bar">
       <label>Тоглоом<select className="input-field" value={selectedId} onChange={e => setSelectedId(e.target.value)}>{games.map(g => <option key={g.id} value={g.id}>{g.title}</option>)}</select></label>
       <label>Огноо<input type="date" value={date} onChange={e => setDate(e.target.value)} /></label>
-      {user.is_super_admin?<label>Ээлж<select value={shift} onChange={e => setShift(e.target.value)}><option value="">Бүх ээлж</option>{[1, 2, 3, 4].map(n => <option key={n} value={n}>{n}-р ээлж</option>)}</select></label>:<label>Ээлж<input className="input-field" value={`${user.shift_number}-р ээлж`} disabled/></label>}
+      {user.is_super_admin?<label>Ээлж<select value={shift} onChange={e => setShift(e.target.value)}><option value="">Бүх ээлж</option>{SHIFT_NUMBERS.map(n => <option key={n} value={n}>{shiftLabel(n)}</option>)}</select></label>:<label>Ээлж<input className="input-field" value={shiftLabel(user.shift_number)} disabled/></label>}
     </div>
 
     {error && <div className="form-error">{error}</div>}
@@ -62,7 +63,7 @@ function GameReport() {
         <div className="section-heading"><div><span className="eyebrow">ТОГЛОСОН</span><h2>{data.players.length} жолооч</h2></div></div>
         {data.players.length === 0 ? <div className="empty-mini">Энэ өдөр хэн ч тоглоогүй байна.</div> : data.players.map(p => <div className="driver-row" key={p.id}>
           <div className="driver-avatar">{p.name[0]}</div>
-          <div><strong>{p.name}</strong><small>SAP {p.sap_id} · {p.shift_number ? `${p.shift_number}-р ээлж` : 'Ээлжгүй'}</small></div>
+          <div><strong>{p.name}</strong><small>SAP {p.sap_id} · {shiftLabelShort(p.shift_number)}</small></div>
           <div className="score-compare"><small>Хугацаа</small><b>{p.duration_seconds}с</b></div>
           <div className="score-compare"><small>Цаг</small><b>{new Intl.DateTimeFormat('mn-MN', { hour: '2-digit', minute: '2-digit' }).format(new Date(p.played_at))}</b></div>
           <span className="trend improved">{p.score}</span>
@@ -73,7 +74,7 @@ function GameReport() {
         <div className="section-heading"><div><span className="eyebrow">ТОГЛООГҮЙ</span><h2>{data.missing.length} жолооч</h2></div></div>
         {data.missing.map(m => <div className="driver-row" key={m.id}>
           <div className="driver-avatar">{m.name[0]}</div>
-          <div><strong>{m.name}</strong><small>SAP {m.sap_id} · {m.shift_number ? `${m.shift_number}-р ээлж` : 'Ээлжгүй'}</small></div>
+          <div><strong>{m.name}</strong><small>SAP {m.sap_id} · {shiftLabelShort(m.shift_number)}</small></div>
         </div>)}
       </section>}
     </>}

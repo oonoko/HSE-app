@@ -18,7 +18,7 @@ export interface User {
   avatar_url?: string
   created_at: string
   last_active?: string
-  shift_number?: 1 | 2 | 3 | 4
+  shift_number?: number
   is_super_admin?: boolean
 }
 
@@ -47,7 +47,7 @@ export interface DailyQuiz {
   start_time: string
   end_time: string
   time_limit_seconds: number
-  target_shift?: 1 | 2 | 3 | 4
+  target_shift?: number
   status: QuizStatus
   questions: DailyQuizQuestion[]
   created_by: string

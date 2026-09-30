@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useApp } from '@/lib/context'
 import Icon from '@/components/ui/Icon'
+import { shiftLabel } from '@/lib/shifts'
 
 type QuizAttempt = { id: string; score: number; max_score: number; completed_at: string; quiz?: { title: string; topic?: string; active_date: string } }
 type GameAttempt = { id: string; score: number; played_at: string; game?: { title: string; template: string } }
@@ -67,7 +68,7 @@ export default function DriverDetailPage() {
 
   return <div className="app-container admin-page page-enter">
     <div className="page-heading-row">
-      <div><span className="eyebrow">ЖОЛООЧИЙН ДЭЛГЭРЭНГҮЙ</span><h1>{data.user.name}</h1><p>SAP {data.user.sap_id} · {data.user.shift_number ? `${data.user.shift_number}-р ээлж` : 'Ээлж оноогоогүй'}</p></div>
+      <div><span className="eyebrow">ЖОЛООЧИЙН ДЭЛГЭРЭНГҮЙ</span><h1>{data.user.name}</h1><p>SAP {data.user.sap_id} · {shiftLabel(data.user.shift_number)}</p></div>
       <Link href="/admin/my-shift" className="btn-secondary">Буцах</Link>
     </div>
 
