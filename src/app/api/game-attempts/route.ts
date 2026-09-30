@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getSession, requireAdmin } from '@/lib/session'
+import { generateCrossword } from '@/lib/crossword'
 
 async function getReport(req: NextRequest) {
   const admin = await requireAdmin()
@@ -66,9 +67,9 @@ export async function POST(req: NextRequest) {
     const { data: game, error: gameError } = await supabase.from('safety_games').select('template, content, active').eq('id', body.game_id).single()
     if (gameError) throw gameError
     if (!game.active) return NextResponse.json({ error: 'Энэ тоглоом хаалттай байна' }, { status: 409 })
-    const content = game.content as { items?: unknown[]; pairs?: unknown[]; grid?: number }
-    const maxScore = game.template === 'puzzle'
-      ? Math.min(16, Math.max(4, Math.pow(Number(content.grid) || 3, 2))) * 100
+    const content = game.content as { items?: unknown[]; pairs?: unknown[]; words?: { word: string; clue: string }[] }
+    const maxScore = game.template === 'word_grid'
+      ? generateCrossword(content.words ?? []).placed.length * 100
       : ((game.template === 'match' ? content.pairs : content.items)?.length ?? 0) * 100
     const score = Math.min(maxScore, Math.max(0, Math.round(Number(body.score) || 0)))
     const { data, error } = await supabase.from('game_attempts').insert({

@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getSession, requireAdmin, requireSuperAdmin } from '@/lib/session'
+import { generateCrossword } from '@/lib/crossword'
 
-const templates = new Set(['truth_false', 'match', 'puzzle', 'random_box'])
+const templates = new Set(['truth_false', 'match', 'word_grid', 'random_box'])
 const categories = new Set(['critical_risk_22', 'life_rules_7', 'other'])
 
 function validContent(template: string, content: Record<string, unknown>) {
-  if (template === 'puzzle') return typeof content.image_url === 'string' && content.image_url.length > 0
+  if (template === 'word_grid') {
+    const words = content.words
+    if (!Array.isArray(words) || words.length < 2) return false
+    if (!words.every(item => typeof item?.word === 'string' && item.word.trim().length >= 2 && typeof item?.clue === 'string' && item.clue.trim())) return false
+    return generateCrossword(words as { word: string; clue: string }[]).placed.length >= 2
+  }
   const values = template === 'match' ? content.pairs : content.items
   if (!Array.isArray(values) || values.length === 0) return false
   if (template === 'match') return values.every(item => typeof item?.left === 'string' && item.left.trim() && typeof item?.right === 'string' && item.right.trim())
