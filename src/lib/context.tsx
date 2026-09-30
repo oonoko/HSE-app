@@ -33,6 +33,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setReady(true)
   }, [])
 
+  // If the server session cookie has expired (12h) while the tab stayed open,
+  // localStorage still looks logged-in and every API call would otherwise
+  // fail with a confusing error instead of sending the user back to /login.
+  useEffect(() => {
+    const originalFetch = window.fetch
+    window.fetch = async (...args) => {
+      const response = await originalFetch(...args)
+      const input = args[0]
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+      if (response.status === 401 && url.includes('/api/') && !url.includes('/api/auth') && window.location.pathname !== '/login') {
+        clearUser()
+        setUser(null)
+        window.location.href = '/login'
+      }
+      return response
+    }
+    return () => { window.fetch = originalFetch }
+  }, [])
+
   const login = useCallback((u: User) => {
     storeUser(u)
     setUser(u)
