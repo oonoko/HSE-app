@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'hse-cache-v2'
+const CACHE_VERSION = 'hse-cache-v3'
 const STATIC_PATTERNS = [/^\/_next\/static\//, /^\/brand\//, /^\/icons\//, /^\/manifest\.json$/]
 const SWR_PATTERNS = [/^\/api\/daily-quizzes(\?|$)/, /^\/api\/games(\?|$)/]
 
@@ -22,7 +22,11 @@ function isStaleWhileRevalidate(url) {
   return SWR_PATTERNS.some(re => re.test(url.pathname))
 }
 
+const IS_LOCAL = ['localhost', '127.0.0.1'].includes(self.location.hostname)
+
 self.addEventListener('fetch', event => {
+  // Never cache while developing, otherwise stale JS chunks hide code changes.
+  if (IS_LOCAL) return
   const { request } = event
   if (request.method !== 'GET') return
   const url = new URL(request.url)

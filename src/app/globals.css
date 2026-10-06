@@ -118,3 +118,7 @@ button,input,select,textarea{font:inherit}button,a{-webkit-tap-highlight-color:t
 .locked-notice{padding:14px 16px;border-radius:14px;background:#fff0f1;border:1px solid #f5c4c7;color:#a9252c;font-size:14px;line-height:1.5;margin-top:12px}
 .answer-button.picked{background:var(--blue-soft);border-color:var(--blue);color:var(--blue-dark)}
 .answer-button.picked>span{background:var(--blue);color:#fff}
+.edit-tabs{display:flex;gap:6px;margin:0 0 16px;padding:5px;background:#e9f1fc;border-radius:14px;width:fit-content;max-width:100%}
+.edit-tabs button{border:0;background:transparent;padding:10px 18px;border-radius:10px;font-weight:800;font-size:14px;color:var(--blue)}
+.edit-tabs button.on{background:var(--blue);color:#fff}
+.results-embedded .res-section{box-shadow:none}
