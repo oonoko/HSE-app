@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
 
     const [{ data: users, error: usersError }, { data: quizzes, error: quizError }, { data: games, error: gameError }] = await Promise.all([
       usersQuery,
-      supabase.from('quiz_attempts').select('user_id, score').eq('completed', true).gte('completed_at', start),
+      supabase.from('quiz_attempts').select('user_id, score, credited_points').eq('completed', true).gte('completed_at', start),
       supabase.from('game_attempts').select('user_id, score').gte('played_at', start),
     ])
     if (usersError) throw usersError
@@ -34,7 +34,12 @@ export async function GET(req: NextRequest) {
     if (gameError) throw gameError
 
     const scores: Record<string, { score: number; count: number }> = {}
-    for (const attempt of [...(quizzes ?? []), ...(games ?? [])]) {
+    for (const attempt of quizzes ?? []) {
+      scores[attempt.user_id] ??= { score: 0, count: 0 }
+      scores[attempt.user_id].score += attempt.credited_points ?? attempt.score
+      scores[attempt.user_id].count += 1
+    }
+    for (const attempt of games ?? []) {
       scores[attempt.user_id] ??= { score: 0, count: 0 }
       scores[attempt.user_id].score += attempt.score
       scores[attempt.user_id].count += 1

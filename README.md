@@ -60,6 +60,7 @@ public/
 2. **SQL Editor** дээр дараах файлуудыг дараалан ажиллуулна:
    - `supabase/schema.sql`
    - `supabase/feature_platform.sql` (эсвэл шинэ өөрчлөлт бүрд `supabase/migrate_*.sql` файлуудыг тус тусад нь)
+   - `supabase/migrate_training_quiz.sql` — сургалтын дараах шалгалт (ирц, оролдлого, хариулт засах). Шинэ суулгалтад feature_platform.sql-ийн дараа заавал ажиллуулна
 3. **Storage** дээр `hazard-images` bucket үүсгэж, public болгоно
 4. **Project Settings → API** дээр credentials хуулна
 

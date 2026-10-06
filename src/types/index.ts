@@ -52,6 +52,31 @@ export interface DailyQuiz {
   questions: DailyQuizQuestion[]
   created_by: string
   created_at: string
+  pass_percent?: number | null
+  max_attempts?: number
+  attendee_ids?: string[]
+  my_status?: QuizMyStatus
+}
+
+export interface QuizMyStatus {
+  attempts_used: number
+  attempts_allowed: number
+  attempts_left: number
+  passed: boolean
+  locked: boolean
+  in_progress: boolean
+  final?: { score: number; max_score: number; correct_count: number; wrong_count: number; passed: boolean | null } | null
+}
+
+export interface QuizMeta {
+  title: string
+  training: boolean
+  pass_percent: number | null
+  attempts_used: number
+  attempts_allowed: number
+  attempts_left: number
+  passed: boolean
+  locked: boolean
 }
 
 export interface QuizAttempt {
@@ -66,6 +91,9 @@ export interface QuizAttempt {
   completed: boolean
   started_at: string
   completed_at?: string
+  attempt_number?: number
+  passed?: boolean | null
+  credited_points?: number
   quiz?: DailyQuiz
 }
 

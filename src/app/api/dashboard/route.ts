@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAdmin } from '@/lib/session'
+import { fetchAnswersForAttempts } from '@/lib/quiz-results'
+import { effectiveCorrect, pickFinalAttempts } from '@/lib/training'
 
 export async function GET(req: NextRequest) {
   try {
@@ -37,12 +39,9 @@ export async function GET(req: NextRequest) {
     const allowedIds = new Set((users ?? []).map(user => user.id))
     const filteredQuiz = quizAttempts.filter(attempt => allowedIds.has(attempt.user_id))
     const filteredGames = (gameAttempts ?? []).filter(attempt => allowedIds.has(attempt.user_id))
-    let quizAnswers: Array<Record<string, any>> = []
-    if (filteredQuiz.length) {
-      const { data, error } = await supabase.from('quiz_answers').select('*').in('attempt_id', filteredQuiz.map(attempt => attempt.id))
-      if (error) throw error
-      quizAnswers = data ?? []
-    }
+    // A driver may have several attempts at a training quiz; count each driver once, by their best/passing attempt.
+    const finalQuiz = pickFinalAttempts(filteredQuiz.map(attempt => attempt as typeof attempt & { user_id: string; quiz_id: string; attempt_number: number; passed: boolean | null; completed: boolean; score: number }))
+    const quizAnswers = finalQuiz.length ? await fetchAnswersForAttempts(supabase, finalQuiz.map(attempt => attempt.id)) : []
     const questionLabels = new Map<string, string>()
     for (const quiz of quizzes ?? []) {
       for (const question of (quiz.questions as Array<{ id: string; text: string }>)) questionLabels.set(question.id, question.text)
@@ -51,15 +50,15 @@ export async function GET(req: NextRequest) {
     for (const answer of quizAnswers) {
       questionMap[answer.question_id] ??= { question_id: answer.question_id, text: questionLabels.get(answer.question_id) || answer.question_id, total: 0, correct: 0 }
       questionMap[answer.question_id].total += 1
-      if (answer.is_correct) questionMap[answer.question_id].correct += 1
+      if (effectiveCorrect(answer)) questionMap[answer.question_id].correct += 1
     }
     const assigned = users?.length ?? 0
-    const completedUsers = new Set(filteredQuiz.map(attempt => attempt.user_id)).size
-    const averageScore = filteredQuiz.length
-      ? Math.round(filteredQuiz.reduce((sum, attempt) => sum + (attempt.max_score ? attempt.score / attempt.max_score * 100 : 0), 0) / filteredQuiz.length)
+    const completedUsers = new Set(finalQuiz.map(attempt => attempt.user_id)).size
+    const averageScore = finalQuiz.length
+      ? Math.round(finalQuiz.reduce((sum, attempt) => sum + (attempt.max_score ? attempt.score / attempt.max_score * 100 : 0), 0) / finalQuiz.length)
       : 0
     const leaderboard = (users ?? []).map(user => {
-      const quizScore = filteredQuiz.filter(item => item.user_id === user.id).reduce((sum, item) => sum + item.score, 0)
+      const quizScore = filteredQuiz.filter(item => item.user_id === user.id).reduce((sum, item) => sum + (item.credited_points ?? item.score), 0)
       const gameScore = filteredGames.filter(item => item.user_id === user.id).reduce((sum, item) => sum + item.score, 0)
       return { ...user, quiz_score: quizScore, game_score: gameScore, total: quizScore + gameScore }
     }).sort((a, b) => b.total - a.total)

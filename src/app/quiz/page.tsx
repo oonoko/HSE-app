@@ -5,9 +5,9 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import { useApp } from '@/lib/context'
 import Icon from '@/components/ui/Icon'
-import type { DailyQuiz, QuizAttempt } from '@/types'
+import type { DailyQuiz, QuizAttempt, QuizMeta } from '@/types'
 
-type Feedback = { selected: number | null; correct: number; isCorrect: boolean; points: number; explanation: string }
+type Feedback = { selected: number | null; correct: number; isCorrect: boolean; points: number; explanation: string; hidden?: boolean }
 
 function QuizRunner() {
   const { user, ready } = useApp()
@@ -21,6 +21,8 @@ function QuizRunner() {
   const [score, setScore] = useState(0)
   const [result, setResult] = useState<QuizAttempt | null>(null)
   const [error, setError] = useState('')
+  const [meta, setMeta] = useState<QuizMeta | null>(null)
+  const [locked, setLocked] = useState<QuizMeta | null>(null)
   const startedAt = useRef(Date.now())
   const answering = useRef(false)
 
@@ -31,6 +33,8 @@ function QuizRunner() {
     fetch('/api/quiz-attempts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'start', quiz_id: quizId, user_id: user.id }) })
       .then(r => r.json()).then(data => {
         if (data.error) throw new Error(data.error)
+        setMeta(data.meta ?? null)
+        if (data.locked) { setLocked(data.meta); return }
         if (data.completed) { setResult(data.data); return }
         setAttempt(data.data); setQuiz(data.quiz)
         const answered = new Set<string>(data.answered_question_ids ?? [])
@@ -43,6 +47,7 @@ function QuizRunner() {
     if (!attempt) return
     const response = await fetch('/api/quiz-attempts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'complete', attempt_id: attempt.id }) })
     const data = await response.json()
+    if (data.meta) setMeta(data.meta)
     if (data.data) setResult(data.data)
   }, [attempt])
 
@@ -62,8 +67,11 @@ function QuizRunner() {
       const response = await fetch('/api/quiz-attempts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'answer', attempt_id: attempt.id, question_id: question.id, selected_index: selected, response_ms: responseMs }) })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error)
-      setScore(value => value + data.points)
-      setFeedback({ selected, correct: data.correct_index, isCorrect: data.data.is_correct, points: data.points, explanation: data.explanation })
+      if (data.hidden) setFeedback({ selected, correct: -1, isCorrect: false, points: 0, explanation: '', hidden: true })
+      else {
+        setScore(value => value + data.points)
+        setFeedback({ selected, correct: data.correct_index, isCorrect: data.data.is_correct, points: data.points, explanation: data.explanation })
+      }
       setTimeout(nextQuestion, 1500)
     } catch (err) { answering.current = false; setError(err instanceof Error ? err.message : 'Хариулт хадгалж чадсангүй') }
   }, [quiz, attempt, feedback, index, nextQuestion])
@@ -79,7 +87,8 @@ function QuizRunner() {
   }, [quiz, index, feedback, result, answer])
 
   if (error) return <div className="app-container"><div className="empty-state card"><h2>Асуумж нээж чадсангүй</h2><p>{error}</p><button className="btn-secondary" onClick={() => router.push('/')}>Буцах</button></div></div>
-  if (result) return <ResultView result={result} onDone={() => router.push('/leaderboard')} />
+  if (locked) return <div className="app-container result-page page-enter"><div className="result-mark result-fail-mark"><Icon name="lock" size={42} /></div><span className="eyebrow">{locked.title}</span><h1>Оролдлого дууссан</h1><div className="locked-notice">Та {locked.attempts_allowed} удаа оролдсон ч {locked.pass_percent}%-д хүрсэнгүй. <strong>Ахин сургалтад суугаад</strong> HSE-ийн ажилтнаас шинэ оролдлого нээлгэнэ үү.</div><button className="btn-secondary" style={{ marginTop: 20 }} onClick={() => router.push('/')}>Буцах</button></div>
+  if (result) return <ResultView result={result} meta={meta} onDone={() => router.push('/leaderboard')} onRetry={() => { window.location.href = `/quiz?id=${quizId}` }} onHome={() => router.push('/')} />
   if (!quiz || !attempt) return <div className="empty-state"><span className="spinner" />Асуумж бэлдэж байна...</div>
 
   const question = quiz.questions[index]
@@ -92,7 +101,8 @@ function QuizRunner() {
       <span className="question-number">АСУУЛТ {index + 1}</span><h1>{question.text}</h1>
       <div className="answer-list">{question.options.map((option, optionIndex) => {
         let state = ''
-        if (feedback) {
+        if (feedback?.hidden) state = feedback.selected === optionIndex ? 'picked' : 'dimmed'
+        else if (feedback) {
           if (optionIndex === feedback.correct) state = 'correct'
           else if (optionIndex === feedback.selected) state = 'wrong'
           else state = 'dimmed'
@@ -100,15 +110,34 @@ function QuizRunner() {
         return <button key={optionIndex} disabled={!!feedback} className={`answer-button ${state}`} onClick={() => answer(optionIndex)}><span>{String.fromCharCode(65 + optionIndex)}</span><strong>{option.text}</strong>{state === 'correct' && <Icon name="check" />}</button>
       })}</div>
       {feedback?.isCorrect && <div className="confetti-burst" aria-hidden="true">{Array.from({ length: 12 }).map((_, i) => <i key={i} style={{ '--i': i } as React.CSSProperties} />)}</div>}
-      {feedback && <div className={`feedback-panel ${feedback.isCorrect ? 'correct' : 'wrong'}`}><strong>{feedback.isCorrect ? `Зөв · +${feedback.points} оноо` : 'Буруу хариулт'}</strong>{feedback.explanation && <p>{feedback.explanation}</p>}</div>}
+      {feedback?.hidden && <div className="feedback-panel"><strong>Хариулт хүлээн авлаа</strong></div>}
+      {feedback && !feedback.hidden && <div className={`feedback-panel ${feedback.isCorrect ? 'correct' : 'wrong'}`}><strong>{feedback.isCorrect ? `Зөв · +${feedback.points} оноо` : 'Буруу хариулт'}</strong>{feedback.explanation && <p>{feedback.explanation}</p>}</div>}
     </main>
     <div className="quiz-progress"><span style={{ width: `${progress}%` }} /></div>
   </div>
 }
 
-function ResultView({ result, onDone }: { result: QuizAttempt; onDone: () => void }) {
+function ResultView({ result, meta, onDone, onRetry, onHome }: { result: QuizAttempt; meta: QuizMeta | null; onDone: () => void; onRetry: () => void; onHome: () => void }) {
   const percent = result.max_score ? Math.round(result.score / result.max_score * 100) : 0
-  return <div className="app-container result-page page-enter"><div className="result-mark"><Icon name="check" size={42} /></div><span className="eyebrow">АСУУМЖ ДУУССАН</span><h1>{result.score.toLocaleString()} оноо</h1><p>Боломжит онооны {percent}%</p><div className="result-grid"><div><small>Зөв</small><strong>{result.correct_count}</strong></div><div><small>Алдсан</small><strong>{result.wrong_count}</strong></div><div><small>Хугацаа</small><strong>{result.total_time_seconds} сек</strong></div></div><button className="btn-primary" onClick={onDone}>Өнөөдрийн rank харах</button></div>
+  const total = result.correct_count + result.wrong_count
+  const answerPercent = total ? Math.round(result.correct_count / total * 100) : 0
+  const training = !!meta?.training
+  const passed = training && !!meta?.passed
+  const canRetry = training && !passed && !!meta && meta.attempts_left > 0
+  const exhausted = training && !passed && !!meta && meta.attempts_left <= 0
+  return <div className="app-container result-page page-enter">
+    <div className={`result-mark ${training ? (passed ? 'result-pass-mark' : 'result-fail-mark') : ''}`}><Icon name={training && !passed ? 'lock' : 'check'} size={42} /></div>
+    <span className="eyebrow">{training ? (passed ? 'ТЭНЦЛЭЭ' : 'ТЭНЦЭЭГҮЙ') : 'АСУУМЖ ДУУССАН'}</span>
+    {training ? <><h1>{answerPercent}%</h1><p>Зөв хариулт {result.correct_count}/{total} · тэнцэх хувь {meta?.pass_percent}%</p>{meta && <span className="attempt-chip">Оролдлого: {meta.attempts_used}/{meta.attempts_allowed}</span>}</>
+      : <><h1>{result.score.toLocaleString()} оноо</h1><p>Боломжит онооны {percent}%</p></>}
+    <div className="result-grid"><div><small>Зөв</small><strong>{result.correct_count}</strong></div><div><small>Алдсан</small><strong>{result.wrong_count}</strong></div><div><small>Хугацаа</small><strong>{result.total_time_seconds} сек</strong></div></div>
+    {exhausted && <div className="locked-notice">Таны бүх оролдлого дууссан. <strong>Ахин сургалтад суугаад</strong> HSE-ийн ажилтнаас шинэ оролдлого нээлгэнэ үү.</div>}
+    {canRetry && <div className="locked-notice" style={{ background: '#fff8ec', borderColor: '#f3d9a4', color: '#8a5a00' }}>Тэнцсэнгүй. Танд {meta!.attempts_left} оролдлого үлдсэн байна.</div>}
+    <div className="button-row" style={{ justifyContent: 'center', marginTop: 20 }}>
+      {canRetry && <button className="btn-primary" onClick={onRetry}>Дахин оролдох</button>}
+      {training ? <button className={canRetry ? 'btn-secondary' : 'btn-primary'} onClick={onHome}>Нүүр хуудас</button> : <button className="btn-primary" onClick={onDone}>Өнөөдрийн rank харах</button>}
+    </div>
+  </div>
 }
 
 export default function QuizPage() { return <Suspense fallback={<div className="empty-state">Ачааллаж байна...</div>}><QuizRunner /></Suspense> }

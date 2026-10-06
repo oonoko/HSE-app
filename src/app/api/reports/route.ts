@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAdmin } from '@/lib/session'
+import { pickFinalAttempts } from '@/lib/training'
 
 export async function GET() {
   try {
@@ -13,7 +14,7 @@ export async function GET() {
     if (shift) quizzesQuery = quizzesQuery.or(`target_shift.is.null,target_shift.eq.${shift}`)
     let gameAttemptsQuery = supabase.from('game_attempts').select('*, user:users!inner(shift_number)', { count: 'exact', head: true })
     if (shift) gameAttemptsQuery = gameAttemptsQuery.eq('user.shift_number', shift)
-    let quizAttemptsQuery = supabase.from('quiz_attempts').select('score, max_score, user:users!inner(shift_number)').eq('completed', true)
+    let quizAttemptsQuery = supabase.from('quiz_attempts').select('quiz_id, user_id, attempt_number, passed, completed, score, max_score, user:users!inner(shift_number)').eq('completed', true)
     if (shift) quizAttemptsQuery = quizAttemptsQuery.eq('user.shift_number', shift)
     let recentQuery = supabase.from('quiz_attempts').select('*, user:users!inner(name, sap_id, shift_number), quiz:daily_quizzes(title)').eq('completed', true).order('completed_at', { ascending: false }).limit(8)
     if (shift) recentQuery = recentQuery.eq('user.shift_number', shift)
@@ -35,7 +36,9 @@ export async function GET() {
     if (quizAttemptsError) throw quizAttemptsError
     if (recentError) throw recentError
 
-    const scored = (quizAttempts ?? []).filter(a => a.max_score > 0)
+    // One result per driver per quiz (their passing / best attempt), so retakes don't skew the average.
+    const finalAttempts = pickFinalAttempts((quizAttempts ?? []).map(attempt => ({ ...attempt, user: undefined })))
+    const scored = finalAttempts.filter(a => a.max_score > 0)
     const avgQuizPercent = scored.length
       ? Math.round(scored.reduce((sum, a) => sum + (a.score / a.max_score) * 100, 0) / scored.length)
       : 0
@@ -43,7 +46,7 @@ export async function GET() {
     return NextResponse.json({
       data: {
         total_quizzes: totalQuizzes ?? 0,
-        total_quiz_attempts: quizAttempts?.length ?? 0,
+        total_quiz_attempts: finalAttempts.length,
         avg_quiz_percent: avgQuizPercent,
         total_games: totalGames ?? 0,
         total_game_attempts: totalGameAttempts ?? 0,

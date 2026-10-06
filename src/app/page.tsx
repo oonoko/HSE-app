@@ -64,12 +64,23 @@ export default function TodayPage() {
         <div className="stack-lg">
           {quizzes.map(quiz => {
             const attempt = attempts.find(item => item.quiz_id === quiz.id)
+            const my = quiz.my_status
+            const training = quiz.pass_percent != null
+            const finished = my ? (my.passed || my.locked || (!training && !!attempt?.completed)) : !!attempt?.completed
+            const retry = !!my && training && !my.passed && !my.locked && my.attempts_used > 0 && !my.in_progress
+            const pill = my?.passed ? ['success', 'Тэнцсэн'] : my?.locked ? ['live', 'Түгжигдсэн'] : finished ? ['success', 'Дууссан'] : ['live', training ? 'Сургалтын шалгалт' : 'Өнөөдрийн асуумж']
+            const final = my?.final ?? (attempt?.completed ? attempt : null)
             return <section key={quiz.id} className="hero-task card">
-              <div className="hero-task-top"><span className={`status-pill ${attempt?.completed ? 'success' : 'live'}`}>{attempt?.completed ? 'Дууссан' : 'Өнөөдрийн асуумж'}</span><span className="deadline"><Icon name="clock" size={16} />{quiz.end_time.slice(0, 5)} хүртэл</span></div>
+              <div className="hero-task-top"><span className={`status-pill ${pill[0]}`}>{pill[1]}</span><span className="deadline"><Icon name="clock" size={16} />{quiz.end_time.slice(0, 5)} хүртэл</span></div>
               <h2>{quiz.title}</h2><p>{quiz.topic || 'HSE-ийн мэдлэг шалгах асуумж'}</p>
-              <div className="task-meta"><span><strong>{quiz.questions.length}</strong> асуулт</span><span><strong>{quiz.time_limit_seconds}</strong> сек / асуулт</span><span><strong>{quiz.questions.length * 100}</strong> боломжит оноо</span></div>
-              {attempt?.completed ? <div className="result-strip"><div><small>Таны оноо</small><strong>{attempt.score}</strong></div><div><small>Зөв</small><strong>{attempt.correct_count}</strong></div><div><small>Алдсан</small><strong>{attempt.wrong_count}</strong></div></div>
-                : <Link href={`/quiz?id=${quiz.id}`} className="btn-primary action-link">{attempt ? 'Үргэлжлүүлэх' : 'Асуумж эхлүүлэх'}<Icon name="chevron" size={18} /></Link>}
+              <div className="task-meta"><span><strong>{quiz.questions.length}</strong> асуулт</span><span><strong>{quiz.time_limit_seconds}</strong> сек / асуулт</span>{training ? <span>тэнцэх <strong>{quiz.pass_percent}%</strong></span> : <span><strong>{quiz.questions.length * 100}</strong> боломжит оноо</span>}</div>
+              {training && my && <span className="attempt-chip">Оролдлого: {my.attempts_used}/{my.attempts_allowed}</span>}
+              {my?.locked ? <div className="locked-notice"><strong>Та {my.attempts_allowed} удаа оролдсон ч тэнцсэнгүй.</strong><br />Ахин сургалтад суугаад HSE-ийн ажилтнаас шинэ оролдлого нээлгэнэ үү.</div>
+                : final && finished ? <div className="result-strip"><div><small>Таны оноо</small><strong>{final.score}</strong></div><div><small>Зөв</small><strong>{final.correct_count}</strong></div><div><small>Алдсан</small><strong>{final.wrong_count}</strong></div></div>
+                : <>
+                  {retry && final && <div className="locked-notice" style={{ background: '#fff8ec', borderColor: '#f3d9a4', color: '#8a5a00' }}>Өмнөх оролдлого тэнцсэнгүй ({my!.attempts_left} оролдлого үлдсэн). Дахин оролдоно уу.</div>}
+                  <Link href={`/quiz?id=${quiz.id}`} className="btn-primary action-link">{retry ? 'Дахин оролдох' : (my?.in_progress || (attempt && !attempt.completed)) ? 'Үргэлжлүүлэх' : 'Асуумж эхлүүлэх'}<Icon name="chevron" size={18} /></Link>
+                </>}
             </section>
           })}
         </div>

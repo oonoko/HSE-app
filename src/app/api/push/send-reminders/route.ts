@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendPush, isGoneError } from '@/lib/push'
 import { mongoliaDate, mongoliaTime } from '@/lib/date'
+import { nextAttemptState, type AttemptLite } from '@/lib/training'
 
 export async function GET(req: NextRequest) {
   try {
@@ -22,20 +23,24 @@ export async function GET(req: NextRequest) {
     if (driversError) throw driversError
 
     const quizIds = openQuizzes.map(q => q.id)
-    const { data: attempts, error: attemptsError } = await supabase.from('quiz_attempts').select('user_id, quiz_id').in('quiz_id', quizIds).eq('completed', true)
+    const [{ data: roster, error: rosterError }, { data: attempts, error: attemptsError }] = await Promise.all([
+      supabase.from('quiz_attendees').select('quiz_id, user_id, attempts_bonus').in('quiz_id', quizIds),
+      supabase.from('quiz_attempts').select('quiz_id, user_id, id, attempt_number, completed, passed').in('quiz_id', quizIds),
+    ])
+    if (rosterError) throw rosterError
     if (attemptsError) throw attemptsError
-    const completedByQuiz = new Map<string, Set<string>>()
-    for (const a of attempts ?? []) {
-      if (!completedByQuiz.has(a.quiz_id)) completedByQuiz.set(a.quiz_id, new Set())
-      completedByQuiz.get(a.quiz_id)!.add(a.user_id)
-    }
 
     const pendingUserIds = new Set<string>()
     for (const quiz of openQuizzes) {
-      const done = completedByQuiz.get(quiz.id) ?? new Set()
-      for (const driver of drivers ?? []) {
-        if (quiz.target_shift && driver.shift_number !== quiz.target_shift) continue
-        if (!done.has(driver.id)) pendingUserIds.add(driver.id)
+      const quizRoster = (roster ?? []).filter(row => row.quiz_id === quiz.id)
+      const bonusOf = new Map(quizRoster.map(row => [row.user_id, row.attempts_bonus ?? 0]))
+      const audience = quizRoster.length > 0
+        ? (drivers ?? []).filter(driver => bonusOf.has(driver.id))
+        : (drivers ?? []).filter(driver => !quiz.target_shift || driver.shift_number === quiz.target_shift)
+      for (const driver of audience) {
+        const mine = (attempts ?? []).filter(attempt => attempt.quiz_id === quiz.id && attempt.user_id === driver.id) as AttemptLite[]
+        const state = nextAttemptState({ pass_percent: quiz.pass_percent ?? null, max_attempts: quiz.max_attempts ?? 1 }, mine, bonusOf.get(driver.id) ?? 0)
+        if (state.kind === 'new' || state.kind === 'resume') pendingUserIds.add(driver.id)
       }
     }
     if (pendingUserIds.size === 0) return NextResponse.json({ data: { quizzes_checked: openQuizzes.length, drivers_notified: 0 } })
