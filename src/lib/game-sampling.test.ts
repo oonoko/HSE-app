@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { maxScoreFor, parseBulkLines, pickCrosswordWords, pickRandom, playCountOf, poolOf } from './game-sampling'
+import { POINTS_PER_ITEM, maxScoreFor, parseBulkLines, pickCrosswordWords, pickRandom, playCountOf, poolOf } from './game-sampling'
 
 const seeded = (seed: number) => () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296 }
 
@@ -41,14 +41,14 @@ describe('pickRandom', () => {
 
 describe('maxScoreFor', () => {
   const items = Array.from({ length: 40 }, (_, i) => ({ statement: `s${i}`, answer: true }))
-  it('scores 100 per shown item', () => {
-    expect(maxScoreFor('truth_false', { items })).toBe(4000)
-    expect(maxScoreFor('truth_false', { items, play_count: 15 })).toBe(1500)
-    expect(maxScoreFor('match', { pairs: items.slice(0, 5), play_count: 15 })).toBe(500)
+  it('scores a fixed number of points per shown item', () => {
+    expect(maxScoreFor('truth_false', { items })).toBe(40 * POINTS_PER_ITEM)
+    expect(maxScoreFor('truth_false', { items, play_count: 15 })).toBe(15 * POINTS_PER_ITEM)
+    expect(maxScoreFor('match', { pairs: items.slice(0, 5), play_count: 15 })).toBe(5 * POINTS_PER_ITEM)
   })
   it('caps a crossword sample at the number of words drawn', () => {
     const words = ['МАШИН', 'ЗАМ', 'БҮС', 'ХУРД', 'ЗОГСОЛТ', 'ГЭРЭЛ', 'ЖОЛООЧ', 'ШИРЭЭ'].map(word => ({ word, clue: word.toLowerCase() }))
-    expect(maxScoreFor('word_grid', { words, play_count: 4 })).toBe(400)
+    expect(maxScoreFor('word_grid', { words, play_count: 4 })).toBe(4 * POINTS_PER_ITEM)
     expect(poolOf('word_grid', { words })).toHaveLength(8)
   })
 })

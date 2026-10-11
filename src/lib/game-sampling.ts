@@ -1,6 +1,7 @@
 import { generateCrossword } from '@/lib/crossword'
 
-export const POINTS_PER_ITEM = 100
+// Games can be replayed endlessly, so each correct item is worth far less than a quiz answer (50-100 points).
+export const POINTS_PER_ITEM = 3
 
 type GameContent = { items?: unknown[]; pairs?: unknown[]; words?: Array<{ word: string; clue: string }>; play_count?: number | null }
 

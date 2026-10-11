@@ -6,7 +6,7 @@ import { useApp } from '@/lib/context'
 import Icon from '@/components/ui/Icon'
 import type { SafetyGame } from '@/types'
 import { generateCrossword, type PlacedWord } from '@/lib/crossword'
-import { pickCrosswordWords, pickRandom, playCountOf } from '@/lib/game-sampling'
+import { POINTS_PER_ITEM, pickCrosswordWords, pickRandom, playCountOf } from '@/lib/game-sampling'
 
 type Item = { statement?: string; prompt?: string; answer?: boolean; explanation?: string; options?: string[]; correct_index?: number; left?: string; right?: string }
 
@@ -33,7 +33,7 @@ function QuestionGame({ game, score, setScore, onComplete }: { game: SafetyGame;
   function choose(correct: boolean) {
     if (feedback) return
     setFeedback(correct ? 'correct' : 'wrong')
-    const nextScore = score + (correct ? 100 : 0)
+    const nextScore = score + (correct ? POINTS_PER_ITEM : 0)
     setScore(nextScore)
     setTimeout(() => { if (index + 1 >= items.length) onComplete(nextScore); else { setIndex(index + 1); setFeedback(null); setBoxOpened(game.template !== 'random_box') } }, 1100)
   }
@@ -46,7 +46,7 @@ function QuestionGame({ game, score, setScore, onComplete }: { game: SafetyGame;
         {game.template === 'match' && matchOptions.map(option => <button key={option} onClick={() => choose(option === item.right)}>{option}</button>)}
         {game.template === 'random_box' && item.options?.map((option, i) => <button key={option} onClick={() => choose(i === item.correct_index)}>{option}</button>)}
       </div></>}
-    {feedback && <div className={`inline-feedback ${feedback}`}>{feedback === 'correct' ? 'Зөв хариулт · +100' : 'Буруу хариулт'}</div>}
+    {feedback && <div className={`inline-feedback ${feedback}`}>{feedback === 'correct' ? `Зөв хариулт · +${POINTS_PER_ITEM}` : 'Буруу хариулт'}</div>}
     {feedback === 'correct' && <div className="confetti-burst">{Array.from({length: 10}).map((_,i)=><i key={i} style={{'--i':i} as React.CSSProperties}/>)}</div>}
   </main>
 }
@@ -129,7 +129,7 @@ function CrosswordGame({ game, onComplete }: { game: SafetyGame; onComplete: (sc
       if (ok) correctWords++
     }
     setChecked(true)
-    setTimeout(() => onComplete(correctWords * 100), 1400)
+    setTimeout(() => onComplete(correctWords * POINTS_PER_ITEM), 1400)
   }
 
   const across = placed.filter(p => p.direction === 'across').sort((a, b) => a.number - b.number)
