@@ -2,7 +2,7 @@ import 'server-only'
 import type { createAdminClient } from '@/lib/supabase/admin'
 import type { SessionUser } from '@/lib/session'
 import { fetchAnswersForAttempts } from '@/lib/quiz-results'
-import { buildDriverReport, type DriverReport, type GameAttemptRecord, type QuizAttemptRecord } from '@/lib/driver-report'
+import { buildDriverReport, redactForDriver, type DriverReport, type GameAttemptRecord, type QuizAttemptRecord } from '@/lib/driver-report'
 
 type Supabase = ReturnType<typeof createAdminClient>
 
@@ -39,7 +39,8 @@ export async function loadDriverReport(supabase: Supabase, userId: string, viewe
     .map(attempt => ({ ...attempt, quiz: { ...attempt.quiz, max_attempts: attempt.quiz.max_attempts ?? 1, pass_percent: attempt.quiz.pass_percent ?? null, topic: attempt.quiz.topic ?? null } })) as unknown as QuizAttemptRecord[]
   const answers = await fetchAnswersForAttempts(supabase, quizAttempts.filter(attempt => attempt.completed).map(attempt => attempt.id))
   const bonus = new Map((roster ?? []).map(row => [row.quiz_id, row.attempts_bonus ?? 0]))
-  const report = buildDriverReport(quizAttempts, answers, (games ?? []) as unknown as GameAttemptRecord[], bonus)
+  const built = buildDriverReport(quizAttempts, answers, (games ?? []) as unknown as GameAttemptRecord[], bonus)
+  const report = viewer.role === 'admin' ? built : redactForDriver(built)
 
   const all = drivers ?? []
   const sameShift = all.filter(driver => driver.shift_number === user.shift_number)

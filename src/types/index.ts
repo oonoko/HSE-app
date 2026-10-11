@@ -37,6 +37,7 @@ export interface DailyQuizQuestion {
   options: [DailyQuizOption, DailyQuizOption, DailyQuizOption]
   correct_index: number
   explanation?: string
+  topic?: string
 }
 
 export interface DailyQuiz {
@@ -125,5 +126,17 @@ export interface Location {
   qr_code: string
   aimag: string
   active: boolean
+  created_at: string
+}
+
+export interface BankQuestion {
+  id: string
+  topic: string
+  text: string
+  options: [DailyQuizOption, DailyQuizOption, DailyQuizOption]
+  correct_index: number
+  explanation?: string | null
+  image_url?: string | null
+  created_by?: string | null
   created_at: string
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildDriverReport, type AnswerRecord, type QuizAttemptRecord } from './driver-report'
+import { buildDriverReport, redactForDriver, type AnswerRecord, type QuizAttemptRecord } from './driver-report'
 
 const questions = [
   { id: 'q1', text: 'Хурд?', options: [{ text: '40' }, { text: '60' }, { text: '90' }], correct_index: 1 },
@@ -55,6 +55,13 @@ describe('buildDriverReport', () => {
     expect(report.overall).toBe('improved')
   })
 
+  it('groups answers by each question topic, falling back to the quiz topic', () => {
+    const mixed = { ...q1, questions: [{ ...questions[0], topic: 'Хурд' }, { ...questions[1], topic: 'Бүс' }] }
+    const result = buildDriverReport([attempt('m1', 'zm', 1, 1, mixed)], [ans('m1', 'q1', 1, true), ans('m1', 'q2', 2, false)], [])
+    expect(result.topics.map(t => [t.topic, t.percent])).toEqual([['Бүс', 0], ['Хурд', 100]])
+    expect(result.weakQuestions[0].topic).toBe('Бүс')
+  })
+
   it('reports a locked training quiz', () => {
     const locked = buildDriverReport([attempt('x1', 'z', 1, 0, q2, false), attempt('x2', 'z', 2, 1, q2, false), attempt('x3', 'z', 3, 1, q2, false)], [], [])
     expect(locked.quizzes[0].status).toBe('locked')
@@ -69,6 +76,17 @@ describe('buildDriverReport', () => {
     expect(result.gameSummary).toMatchObject({ plays: 2, totalScore: 1900, improved: 1 })
     expect(result.quizSummary.trend).toBe('unknown')
     expect(result.overall).toBe('improved')
+  })
+
+  it('hides answers of a training quiz that can still be retaken', () => {
+    const open = buildDriverReport([attempt('r1', 'zr', 1, 0, q2, false)], [ans('r1', 'q1', 0, false), ans('r1', 'q2', 1, false)], [])
+    expect(open.quizzes[0].status).toBe('failed')
+    const view = redactForDriver(open)
+    expect(view.quizzes[0].answers).toEqual([])
+    expect(view.weakQuestions.every(item => item.correct_text === '' && item.chosen_text === '')).toBe(true)
+    expect(view.quizzes[0].final.percent).toBe(0)
+    const done = redactForDriver(report)
+    expect(done.quizzes[1].answers.length).toBe(2)
   })
 
   it('handles a driver with no activity', () => {

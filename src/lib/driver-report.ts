@@ -2,7 +2,7 @@ import { mongoliaDate } from '@/lib/date'
 import { effectiveCorrect, participantStatus, pickFinalAttempts, type ParticipantStatus } from '@/lib/training'
 import { progressStatus, type ProgressStatus } from '@/lib/game-analytics'
 
-export type ReportQuestion = { id: string; text: string; options: Array<{ text: string }>; correct_index: number; explanation?: string }
+export type ReportQuestion = { id: string; topic?: string | null; text: string; options: Array<{ text: string }>; correct_index: number; explanation?: string }
 export type QuizAttemptRecord = {
   id: string; quiz_id: string; user_id: string; attempt_number: number; completed: boolean; passed: boolean | null
   score: number; max_score: number; correct_count: number; wrong_count: number; credited_points: number | null
@@ -21,7 +21,7 @@ export const TREND_LABELS: Record<Trend, string> = { improved: 'Сайжирса
 export const QUIZ_TREND_POINTS = 5
 
 export type AnswerView = {
-  question_id: string; text: string; options: string[]; selected_index: number | null; correct_index: number
+  question_id: string; topic: string; text: string; options: string[]; selected_index: number | null; correct_index: number
   correct: boolean; overridden: boolean; override_reason: string | null; explanation: string
 }
 export type AttemptView = { id: string; number: number; percent: number; correct: number; wrong: number; passed: boolean | null; completed_at: string | null }
@@ -96,7 +96,7 @@ export function buildDriverReport(
       answers: quiz.questions.map(question => {
         const answer = finalAnswers.find(item => item.question_id === question.id)
         return {
-          question_id: question.id, text: question.text, options: question.options.map(option => option.text), selected_index: answer?.selected_index ?? null,
+          question_id: question.id, topic: question.topic?.trim() || quiz.topic?.trim() || quiz.title, text: question.text, options: question.options.map(option => option.text), selected_index: answer?.selected_index ?? null,
           correct_index: question.correct_index, correct: answer ? effectiveCorrect(answer) : false, overridden: answer?.override_correct != null,
           override_reason: answer?.override_reason ?? null, explanation: question.explanation ?? '',
         }
@@ -123,17 +123,16 @@ export function buildDriverReport(
   const topicMap = new Map<string, { answered: number; correct: number }>()
   const weakQuestions: WeakQuestion[] = []
   for (const entry of quizzes) {
-    const topic = entry.topic?.trim() || entry.title
-    const stat = topicMap.get(topic) ?? { answered: 0, correct: 0 }
     for (const answer of entry.answers) {
+      const stat = topicMap.get(answer.topic) ?? { answered: 0, correct: 0 }
       stat.answered += 1
       if (answer.correct) stat.correct += 1
-      else weakQuestions.push({
-        quiz_id: entry.quiz_id, quiz_title: entry.title, topic: entry.topic, question_id: answer.question_id, text: answer.text,
+      topicMap.set(answer.topic, stat)
+      if (!answer.correct) weakQuestions.push({
+        quiz_id: entry.quiz_id, quiz_title: entry.title, topic: answer.topic, question_id: answer.question_id, text: answer.text,
         correct_text: answer.options[answer.correct_index] ?? '', chosen_text: answer.selected_index === null ? 'Хариулаагүй' : (answer.options[answer.selected_index] ?? ''),
       })
     }
-    topicMap.set(topic, stat)
   }
   const topics: TopicStat[] = [...topicMap.entries()].map(([topic, stat]) => ({ topic, ...stat, percent: pct(stat.correct, stat.answered) })).sort((a, b) => a.percent - b.percent)
 
@@ -164,4 +163,15 @@ export function buildDriverReport(
     overall = gameSummary.improved > gameSummary.declined ? 'improved' : gameSummary.declined > gameSummary.improved ? 'declined' : 'stable'
   }
   return { quizzes, quizSummary, topics, weakQuestions, games, gameSummary, timeline, overall }
+}
+
+// A driver who may still retake a training quiz must not see its correct answers in their own report.
+export function redactForDriver(report: DriverReport): DriverReport {
+  const hidden = new Set(report.quizzes.filter(entry => entry.training && entry.status === 'failed').map(entry => entry.quiz_id))
+  if (hidden.size === 0) return report
+  return {
+    ...report,
+    quizzes: report.quizzes.map(entry => hidden.has(entry.quiz_id) ? { ...entry, answers: [] } : entry),
+    weakQuestions: report.weakQuestions.map(item => hidden.has(item.quiz_id) ? { ...item, correct_text: '', chosen_text: '' } : item),
+  }
 }

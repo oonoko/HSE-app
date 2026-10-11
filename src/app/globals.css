@@ -142,3 +142,16 @@ button,input,select,textarea{font:inherit}button,a{-webkit-tap-highlight-color:t
   .driver-report .answer-row{break-inside:avoid}
   .animate-none,.page-enter{animation:none!important}
 }
+
+/* ---- Question bank ---- */
+.bank-picker{margin-bottom:16px}
+.bank-random{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:12px 0;padding:10px 12px;border-radius:12px;background:var(--blue-soft);font-size:13px}
+.bank-random input{width:80px}
+.bank-list{max-height:360px;overflow:auto;display:grid;gap:6px;margin-bottom:12px}
+.bank-list label{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:11px;background:#fff;cursor:pointer}
+.bank-list label.selected{border-color:var(--blue);background:var(--blue-soft)}
+.bank-list label.used{opacity:.55;cursor:not-allowed}
+.bank-list input{width:18px;height:18px;margin-top:2px;accent-color:var(--blue);flex:none}
+.bank-list strong{display:block;font-size:13px}.bank-list small{display:block;color:var(--muted);font-size:11px;margin-top:3px}
+.q-topic-row{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}.q-topic-row label{flex:1;min-width:180px}
+.encourage{background:linear-gradient(135deg,#eaf2fd,#fff1e9);border:0}.encourage strong{font-size:15px;line-height:1.5;color:var(--blue-dark)}

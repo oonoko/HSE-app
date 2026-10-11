@@ -61,6 +61,7 @@ public/
    - `supabase/schema.sql`
    - `supabase/feature_platform.sql` (эсвэл шинэ өөрчлөлт бүрд `supabase/migrate_*.sql` файлуудыг тус тусад нь)
    - `supabase/migrate_training_quiz.sql` — сургалтын дараах шалгалт (ирц, оролдлого, хариулт засах). Шинэ суулгалтад feature_platform.sql-ийн дараа заавал ажиллуулна
+   - `supabase/migrate_question_bank.sql` — асуултын сан (сэдвээр ангилсан асуултууд)
 3. **Storage** дээр `hazard-images` bucket үүсгэж, public болгоно
 4. **Project Settings → API** дээр credentials хуулна
 
