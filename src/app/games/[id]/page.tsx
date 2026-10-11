@@ -6,6 +6,7 @@ import { useApp } from '@/lib/context'
 import Icon from '@/components/ui/Icon'
 import type { SafetyGame } from '@/types'
 import { generateCrossword, type PlacedWord } from '@/lib/crossword'
+import { pickCrosswordWords, pickRandom, playCountOf } from '@/lib/game-sampling'
 
 type Item = { statement?: string; prompt?: string; answer?: boolean; explanation?: string; options?: string[]; correct_index?: number; left?: string; right?: string }
 
@@ -21,8 +22,10 @@ export default function GamePlayPage() {
 }
 
 function QuestionGame({ game, score, setScore, onComplete }: { game: SafetyGame; score: number; setScore: (value: number) => void; onComplete: (score: number) => void }) {
-  const content = game.content as { items?: Item[]; pairs?: Item[] }
-  const items = (game.template === 'match' ? content.pairs : content.items) ?? []
+  const content = game.content as { items?: Item[]; pairs?: Item[]; play_count?: number }
+  const pool = (game.template === 'match' ? content.pairs : content.items) ?? []
+  // Every play draws a fresh random subset of the pool, in a fresh random order.
+  const items = useMemo(() => pickRandom(pool, playCountOf(content, pool.length)), [game.id]) // eslint-disable-line react-hooks/exhaustive-deps
   const [index, setIndex] = useState(0); const [feedback, setFeedback] = useState<'correct' | 'wrong' | null>(null); const [boxOpened, setBoxOpened] = useState(game.template !== 'random_box')
   const item = items[index]
   const matchOptions = useMemo(() => game.template === 'match' ? [...items.map(entry => entry.right || '')].sort(() => Math.random() - .5) : [], [game.template, items])
@@ -49,8 +52,11 @@ function QuestionGame({ game, score, setScore, onComplete }: { game: SafetyGame;
 }
 
 function CrosswordGame({ game, onComplete }: { game: SafetyGame; onComplete: (score: number) => void }) {
-  const content = game.content as { words?: { word: string; clue: string }[] }
-  const result = useMemo(() => generateCrossword(content.words ?? []), [content.words])
+  const content = game.content as { words?: { word: string; clue: string }[]; play_count?: number }
+  const result = useMemo(() => {
+    const words = content.words ?? []
+    return generateCrossword(pickCrosswordWords(words, playCountOf(content, words.length)))
+  }, [game.id]) // eslint-disable-line react-hooks/exhaustive-deps
   const { placed, width, height } = result
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [activeWordKey, setActiveWordKey] = useState<string | null>(null)

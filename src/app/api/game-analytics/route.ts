@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAdmin } from '@/lib/session'
-import { generateCrossword } from '@/lib/crossword'
+import { maxScoreFor } from '@/lib/game-sampling'
 import { analyzeGame, type GameAttemptLite } from '@/lib/game-analytics'
 import { SHIFT_NUMBERS } from '@/lib/shifts'
 
@@ -35,10 +35,7 @@ export async function GET(req: NextRequest) {
       if ((data?.length ?? 0) < 1000) break
     }
 
-    const content = game.content as { items?: unknown[]; pairs?: unknown[]; words?: { word: string; clue: string }[] }
-    const maxScore = game.template === 'word_grid'
-      ? generateCrossword(content.words ?? []).placed.length * 100
-      : ((game.template === 'match' ? content.pairs : content.items)?.length ?? 0) * 100
+    const maxScore = maxScoreFor(game.template, game.content as Parameters<typeof maxScoreFor>[1])
 
     return NextResponse.json({ data: { game: { id: game.id, title: game.title, template: game.template, category: game.category }, shift, ...analyzeGame(attempts, drivers ?? [], maxScore || null) } })
   } catch (error) {

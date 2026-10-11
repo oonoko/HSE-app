@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getSession, requireAdmin, requireSuperAdmin } from '@/lib/session'
 import { generateCrossword } from '@/lib/crossword'
+import { poolOf } from '@/lib/game-sampling'
 
 const templates = new Set(['truth_false', 'match', 'word_grid', 'random_box'])
 const categories = new Set(['critical_risk_22', 'life_rules_7', 'other'])
@@ -46,11 +47,16 @@ export async function POST(req: NextRequest) {
     if (!body.title?.trim() || !templates.has(body.template) || !categories.has(body.category) || !validContent(body.template, body.content ?? {})) {
       return NextResponse.json({ error: 'Тоглоомын мэдээлэл дутуу байна' }, { status: 400 })
     }
+    const content: Record<string, unknown> = { ...(body.content ?? {}) }
+    const pool = poolOf(body.template, content as Parameters<typeof poolOf>[1]).length
+    const playCount = Math.floor(Number(content.play_count))
+    if (Number.isFinite(playCount) && playCount >= 1 && playCount < pool) content.play_count = playCount
+    else delete content.play_count
     const payload = {
       title: body.title.trim(),
       template: body.template,
       category: body.category,
-      content: body.content ?? {},
+      content,
       active: body.active !== false,
       created_by: admin.id,
       updated_at: new Date().toISOString(),
