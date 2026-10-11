@@ -131,3 +131,14 @@ button,input,select,textarea{font:inherit}button,a{-webkit-tap-highlight-color:t
 .ga-compare .track{height:12px;background:#edf1f6;border-radius:9px;overflow:hidden}.ga-compare .track i{display:block;height:100%;background:#9fb5d6;border-radius:9px}.ga-compare .track i.now{background:var(--blue)}
 .ga-up{color:#0e7f4d;font-weight:800}.ga-down{color:var(--red);font-weight:800}
 .ga-improved{background:#e8f8f1;color:#0e7f4d}.ga-declined{background:#fff0f1;color:#a9252c}.ga-stable{background:#eef2f7;color:#5f6c7d}.ga-single{background:var(--blue-soft);color:var(--blue)}
+
+/* ---- Driver report print ---- */
+@media print{
+  .app-header,.bottom-nav,.no-print,.page-wrapper>nav{display:none!important}
+  .page-wrapper{padding:0!important}
+  body,.page-wrapper{background:#fff!important}
+  .driver-report{width:100%!important;margin:0!important}
+  .driver-report .card,.driver-report .kpi-grid>div{box-shadow:none!important;break-inside:avoid}
+  .driver-report .answer-row{break-inside:avoid}
+  .animate-none,.page-enter{animation:none!important}
+}

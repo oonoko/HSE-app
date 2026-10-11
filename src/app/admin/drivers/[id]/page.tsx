@@ -1,105 +1,111 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useApp } from '@/lib/context'
-import Icon from '@/components/ui/Icon'
 import { shiftLabel } from '@/lib/shifts'
+import { STATUS_LABELS, overrideReasonLabel } from '@/lib/training'
+import { PROGRESS_LABELS } from '@/lib/game-analytics'
+import { TREND_LABELS, type DriverReport, type Trend } from '@/lib/driver-report'
 
-type QuizAttempt = { id: string; score: number; max_score: number; completed_at: string; quiz?: { title: string; topic?: string; active_date: string } }
-type GameAttempt = { id: string; score: number; played_at: string; game?: { title: string; template: string } }
-type ProfileData = {
-  user: { id: string; name: string; sap_id: string; shift_number?: number; total_score: number }
-  quiz_attempts: QuizAttempt[]
-  game_attempts: GameAttempt[]
-  rank: number | null
-  shift_rank: number | null
+type Payload = {
+  user: { id: string; sap_id: string; name: string; shift_number: number | null; department: string | null; total_score: number }
+  rank: number | null; shift_rank: number | null; total_drivers: number; shift_drivers: number
+  report: DriverReport
 }
 
-function TrendChart({ points }: { points: { date: string; value: number }[] }) {
-  if (points.length < 2) return <div className="empty-mini">Графикт хамгийн багадаа 2 оролдлого хэрэгтэй.</div>
-  const w = 640, h = 200, pad = 26
-  const step = (w - 2 * pad) / (points.length - 1)
-  const xs = points.map((_, i) => pad + i * step)
-  const ys = points.map(p => h - pad - (Math.max(0, Math.min(100, p.value)) / 100) * (h - 2 * pad))
-  const linePath = xs.map((x, i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${ys[i].toFixed(1)}`).join(' ')
-  const areaPath = `${linePath} L${xs[xs.length - 1].toFixed(1)},${h - pad} L${xs[0].toFixed(1)},${h - pad} Z`
-  return <svg viewBox={`0 0 ${w} ${h}`} className="trend-chart" preserveAspectRatio="none">
-    {[0, 25, 50, 75, 100].map(v => <line key={v} x1={pad} x2={w - pad} y1={h - pad - (v / 100) * (h - 2 * pad)} y2={h - pad - (v / 100) * (h - 2 * pad)} stroke="#eef2f7" strokeWidth={1} />)}
-    <path d={areaPath} fill="#eaf2fd" />
-    <path d={linePath} fill="none" stroke="#164f99" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
-    {xs.map((x, i) => <circle key={i} cx={x} cy={ys[i]} r={i === xs.length - 1 ? 6 : 4} fill={i === xs.length - 1 ? '#f15a24' : '#164f99'} />)}
+const day = (iso: string | null) => (iso ? new Intl.DateTimeFormat('mn-MN', { timeZone: 'Asia/Ulaanbaatar', year: 'numeric', month: 'short', day: 'numeric' }).format(new Date(iso)) : '—')
+const signed = (value: number) => (value > 0 ? `+${value}` : String(value))
+const trendClass = (trend: Trend) => (trend === 'improved' ? 'positive' : trend === 'declined' ? 'negative' : '')
+
+function PercentChart({ points }: { points: Array<{ label: string; value: number }> }) {
+  if (points.length < 2) return <div className="empty-mini">Графикт хамгийн багадаа 2 асуумж хэрэгтэй.</div>
+  const w = 640, h = 210, pad = { l: 34, r: 16, t: 14, b: 28 }
+  const x = (i: number) => pad.l + (i / (points.length - 1)) * (w - pad.l - pad.r)
+  const y = (v: number) => pad.t + (1 - v / 100) * (h - pad.t - pad.b)
+  const line = points.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.value).toFixed(1)}`).join(' ')
+  return <svg viewBox={`0 0 ${w} ${h}`} className="ga-chart" role="img" aria-label="Асуумж бүрийн зөв хариултын хувь">
+    {[0, 50, 100].map(v => <g key={v}><line x1={pad.l} x2={w - pad.r} y1={y(v)} y2={y(v)} stroke="#dce4ef" /><text x={pad.l - 6} y={y(v) + 4} textAnchor="end" fontSize="11" fill="#67748a">{v}%</text></g>)}
+    <path d={line} fill="none" stroke="#164f99" strokeWidth="3" strokeLinejoin="round" />
+    {points.map((p, i) => <g key={i}><circle cx={x(i)} cy={y(p.value)} r="5" fill={i === points.length - 1 ? '#f15a24' : '#164f99'} /><text x={x(i)} y={y(p.value) - 10} textAnchor="middle" fontSize="11" fontWeight="700" fill="#162033">{p.value}%</text><text x={x(i)} y={h - 8} textAnchor="middle" fontSize="10" fill="#67748a">{p.label}</text></g>)}
   </svg>
 }
 
-export default function DriverDetailPage() {
+export default function DriverReportPage() {
   const { id } = useParams<{ id: string }>()
   const { user, ready, isAdmin } = useApp()
   const router = useRouter()
-  const [data, setData] = useState<ProfileData | null>(null)
+  const [data, setData] = useState<Payload | null>(null)
   const [error, setError] = useState('')
+  const [open, setOpen] = useState<string | null>(null)
 
   useEffect(() => {
     if (!ready) return
     if (!user) { router.push('/login'); return }
     if (!isAdmin) { router.push('/'); return }
-    fetch(`/api/profile?user_id=${id}`).then(r => r.json()).then(result => {
-      if (result.error) throw new Error(result.error)
-      setData(result.data)
-    }).catch(err => setError(err instanceof Error ? err.message : 'Мэдээлэл авч чадсангүй'))
+    fetch(`/api/drivers/${id}/report`).then(async r => { const body = await r.json(); if (!r.ok) throw new Error(body.error); setData(body.data) })
+      .catch(err => setError(err instanceof Error ? err.message : 'Мэдээлэл авч чадсангүй'))
   }, [ready, user, isAdmin, router, id])
 
   if (!user || !isAdmin) return null
   if (error) return <div className="app-container admin-page"><div className="empty-state card"><h2>Алдаа гарлаа</h2><p>{error}</p></div></div>
   if (!data) return <div className="empty-state"><span className="spinner" /></div>
 
-  const quizPoints = [...data.quiz_attempts]
-    .sort((a, b) => a.completed_at.localeCompare(b.completed_at))
-    .map(a => ({ date: a.completed_at, value: a.max_score ? Math.round((a.score / a.max_score) * 100) : 0 }))
+  const { report, user: driver } = data
+  const q = report.quizSummary, g = report.gameSummary
 
-  const first = quizPoints[0]?.value
-  const latest = quizPoints[quizPoints.length - 1]?.value
-  const delta = first !== undefined && latest !== undefined ? latest - first : 0
-  const trend = delta > 5 ? 'improved' : delta < -5 ? 'declined' : 'stable'
-  const trendLabel = trend === 'improved' ? 'Сайжирсан' : trend === 'declined' ? 'Муудсан' : 'Тогтвортой'
-
-  const gameTotal = data.game_attempts.reduce((sum, a) => sum + a.score, 0)
-
-  return <div className="app-container admin-page page-enter">
+  return <div className="app-container admin-page page-enter driver-report">
     <div className="page-heading-row">
-      <div><span className="eyebrow">ЖОЛООЧИЙН ДЭЛГЭРЭНГҮЙ</span><h1>{data.user.name}</h1><p>SAP {data.user.sap_id} · {shiftLabel(data.user.shift_number)}</p></div>
-      <Link href="/admin/my-shift" className="btn-secondary">Буцах</Link>
+      <div><span className="eyebrow">ХУВЬ ХҮНИЙ ХӨГЖЛИЙН ТАЙЛАН</span><h1>{driver.name}</h1>
+        <p>SAP {driver.sap_id} · {shiftLabel(driver.shift_number)}{driver.department ? ` · ${driver.department}` : ''} · {driver.total_score.toLocaleString()} оноо{data.rank ? ` · нийт ${data.rank}/${data.total_drivers}` : ''}{data.shift_rank ? ` · ээлжид ${data.shift_rank}/${data.shift_drivers}` : ''}</p></div>
+      <div className="list-actions no-print"><Link href="/admin/my-shift" className="btn-secondary">Буцах</Link><button className="btn-secondary" onClick={() => window.print()}>Хэвлэх / PDF</button><a className="btn-primary" href={`/api/drivers/${id}/export`}>Excel татах</a></div>
     </div>
 
     <div className="kpi-grid">
-      <div><span>Нийт асуумж</span><strong>{quizPoints.length}</strong></div>
-      <div><span>Эхний оноо</span><strong>{first !== undefined ? `${first}%` : '—'}</strong></div>
-      <div><span>Сүүлийн оноо</span><strong>{latest !== undefined ? `${latest}%` : '—'}</strong></div>
-      <div className={trend === 'improved' ? 'positive' : trend === 'declined' ? 'negative' : ''}><span>Ерөнхий чиг хандлага</span><strong>{trendLabel}</strong></div>
+      <div className={trendClass(report.overall)}><span>Ерөнхий дүгнэлт</span><strong>{TREND_LABELS[report.overall]}</strong></div>
+      <div><span>Асуумж өгсөн</span><strong>{q.count}</strong><small>{q.attemptsTotal} оролдлого · {q.retakes} дахин</small></div>
+      <div><span>Дундаж зөв хариулт</span><strong>{q.count ? `${q.avgPercent}%` : '—'}</strong></div>
+      <div className={q.change === null ? '' : q.change >= 0 ? 'positive' : 'negative'}><span>Эхнээс сүүлд хүртэл</span><strong>{q.change === null ? '—' : `${signed(q.change)} оноо`}</strong><small>{q.firstPercent !== null && q.change !== null ? `${q.firstPercent}% → ${q.latestPercent}%` : ''}</small></div>
     </div>
 
     <section className="card dashboard-card" style={{ marginTop: 14 }}>
-      <div className="section-heading"><div><span className="eyebrow">АСУУМЖИЙН ОНООНЫ ЯВЦ</span><h2>Хугацааны явцын график</h2></div></div>
-      <TrendChart points={quizPoints} />
+      <div className="section-heading"><div><span className="eyebrow">АСУУМЖ</span><h2>Зөв хариултын хувь, асуумж бүрээр</h2></div></div>
+      <PercentChart points={report.quizzes.map(entry => ({ label: entry.date.slice(5).replace('-', '/'), value: entry.final.percent }))} />
+      <p className="hint-text">Хувь нь зөв хариултын тоог асуултын тоонд харьцуулсан (хариулах хурдаас хамаарахгүй). Дахин өгсөн шалгалтад тэнцсэн, эс бөгөөс хамгийн өндөр оролдлогыг авсан. Админ засварласан хариултыг зөв гэж тооцсон.</p>
     </section>
 
     <section className="card dashboard-card" style={{ marginTop: 14 }}>
-      <div className="section-heading"><div><span className="eyebrow">ТҮҮХ</span><h2>Асуумжийн оролдлогууд</h2></div></div>
-      {data.quiz_attempts.length === 0 ? <div className="empty-mini">Асуумж өгөөгүй байна.</div> : data.quiz_attempts.map(a => <div className="activity-row" key={a.id}>
-        <div className="activity-icon quiz"><Icon name="clipboard" size={19} /></div>
-        <div><strong>{a.quiz?.title || 'Өдрийн асуумж'}</strong><small>{new Intl.DateTimeFormat('mn-MN', { year: 'numeric', month: 'short', day: 'numeric' }).format(new Date(a.completed_at))}</small></div>
-        <b>{a.max_score ? Math.round((a.score / a.max_score) * 100) : 0}%</b>
-      </div>)}
+      <div className="section-heading"><div><span className="eyebrow">ТҮҮХ</span><h2>Асуумжийн дэлгэрэнгүй</h2></div></div>
+      {report.quizzes.length === 0 ? <div className="empty-mini">Асуумж өгөөгүй байна.</div> : <div className="res-table-wrap"><table className="res-table"><thead><tr><th>Өдөр</th><th>Асуумж</th><th>Төлөв</th><th>Оролдлого</th><th>Зөв / буруу</th><th>Хувь</th><th className="no-print"></th></tr></thead><tbody>
+        {report.quizzes.map(entry => <Fragment key={entry.quiz_id}>
+          <tr>
+            <td>{entry.date}</td><td><strong>{entry.title}</strong>{entry.topic && <small style={{ display: 'block', color: 'var(--muted)' }}>{entry.topic}</small>}</td>
+            <td><span className={`st-pill st-${entry.status}`}>{STATUS_LABELS[entry.status]}</span></td>
+            <td>{entry.attempts.map(a => `${a.number}-р: ${a.percent}%`).join(' → ')}</td><td>{entry.final.correct} / {entry.final.wrong}</td><td><strong>{entry.final.percent}%</strong></td>
+            <td className="no-print"><button className="text-button" onClick={() => setOpen(open === entry.quiz_id ? null : entry.quiz_id)}>{open === entry.quiz_id ? 'Хаах' : 'Хариулт'}</button></td></tr>
+          {open === entry.quiz_id && <tr><td colSpan={7}>{entry.answers.map((answer, i) => <div key={answer.question_id} className={`answer-row ${answer.correct ? 'ok' : 'no'}`}>
+            <h4>{i + 1}. {answer.text}{answer.overridden && <span className="override-badge">Админ засав: {overrideReasonLabel(answer.override_reason)}</span>}</h4>
+            <div className="answer-opts">{answer.options.map((option, oi) => <div key={oi} className={`${oi === answer.correct_index ? 'is-correct' : ''} ${answer.selected_index === oi ? 'is-picked' : ''}`}>{String.fromCharCode(65 + oi)}. {option}{answer.selected_index === oi && ' ← сонгосон'}{oi === answer.correct_index && ' ✓ зөв'}</div>)}{answer.selected_index === null && <div>Хариулаагүй</div>}</div></div>)}</td></tr>}
+        </Fragment>)}</tbody></table></div>}
+    </section>
+
+    {report.topics.length > 0 && <section className="card dashboard-card" style={{ marginTop: 14 }}>
+      <div className="section-heading"><div><span className="eyebrow">СЭДЭВ</span><h2>Сэдвээр зөв хариултын хувь</h2></div></div>
+      <div className="q-bars">{report.topics.map(topic => <div key={topic.topic} className={`q-bar ${topic.percent < 60 ? 'low' : ''}`}><span>{topic.topic} — <strong>{topic.percent}%</strong> ({topic.correct}/{topic.answered})</span><div className="track"><i style={{ width: `${topic.percent}%` }} /></div></div>)}</div>
+    </section>}
+
+    <section className="card dashboard-card" style={{ marginTop: 14 }}>
+      <div className="section-heading"><div><span className="eyebrow">ДУТУУ ТАЛ</span><h2>Алдсан асуултууд ({report.weakQuestions.length})</h2></div></div>
+      {report.weakQuestions.length === 0 ? <div className="empty-mini">{q.count ? 'Сүүлийн оролдлогуудад алдсан асуулт алга.' : 'Өгөгдөл алга.'}</div> : report.weakQuestions.map(item => <div className="answer-row no" key={`${item.quiz_id}-${item.question_id}`}>
+        <h4>{item.text}</h4><div className="answer-opts"><div className="is-picked">Сонгосон: {item.chosen_text}</div><div className="is-correct">Зөв хариулт: {item.correct_text}</div></div><small style={{ color: 'var(--muted)' }}>{item.quiz_title}</small></div>)}
     </section>
 
     <section className="card dashboard-card" style={{ marginTop: 14 }}>
-      <div className="section-heading"><div><span className="eyebrow">ТОГЛООМ</span><h2>Нийт {gameTotal} оноо · {data.game_attempts.length} оролдлого</h2></div></div>
-      {data.game_attempts.length === 0 ? <div className="empty-mini">Тоглоом тоглоогүй байна.</div> : data.game_attempts.map(a => <div className="activity-row" key={a.id}>
-        <div className="activity-icon game"><Icon name="game" size={19} /></div>
-        <div><strong>{a.game?.title || 'Тоглоом'}</strong><small>{new Intl.DateTimeFormat('mn-MN', { year: 'numeric', month: 'short', day: 'numeric' }).format(new Date(a.played_at))}</small></div>
-        <b>+{a.score}</b>
-      </div>)}
+      <div className="section-heading"><div><span className="eyebrow">ТОГЛООМ</span><h2>{g.totalScore.toLocaleString()} оноо · {g.plays} тоглолт · {g.games} тоглоом</h2></div></div>
+      {report.games.length === 0 ? <div className="empty-mini">Тоглоом тоглоогүй байна.</div> : <div className="res-table-wrap"><table className="res-table"><thead><tr><th>Тоглоом</th><th>Тоглолт</th><th>Эхний</th><th>Сүүлийн</th><th>Шилдэг</th><th>Дундаж</th><th>Өөрчлөлт</th><th>Төлөв</th></tr></thead><tbody>
+        {report.games.map(game => <tr key={game.game_id}><td><strong>{game.title}</strong><small style={{ display: 'block', color: 'var(--muted)' }}>{game.history.map(p => p.score).join(' → ')}</small></td><td>{game.plays}</td><td>{game.first}</td><td>{game.latest}</td><td>{game.best}</td><td>{game.average}</td>
+          <td className={game.status === 'improved' ? 'ga-up' : game.status === 'declined' ? 'ga-down' : ''}>{game.plays > 1 ? `${signed(game.change)} (${signed(game.changePercent)}%)` : '—'}</td><td><span className={`st-pill ga-${game.status}`}>{PROGRESS_LABELS[game.status]}</span></td></tr>)}</tbody></table></div>}
     </section>
   </div>
 }
