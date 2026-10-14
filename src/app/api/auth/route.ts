@@ -3,8 +3,19 @@ import { getUserById } from '@/lib/mock-data'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { scryptSync, timingSafeEqual } from 'crypto'
 import { attachSession, clearSession } from '@/lib/session'
+import { GUEST_DEPARTMENT, cleanNamePart, guestFullName, validNamePart, validSapNumber } from '@/lib/guest'
 
 const failedAttempts = new Map<string, { count: number; blockedUntil: number }>()
+// Best-effort throttle on guest sign-ups per client (resets when the serverless instance recycles).
+const guestSignups = new Map<string, { count: number; resetAt: number }>()
+const GUEST_LIMIT = 5
+const GUEST_WINDOW_MS = 60 * 60 * 1000
+
+function clientKey(req: NextRequest) {
+  return (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || 'unknown'
+}
+
+const USER_COLUMNS = 'id, sap_id, name, name_en, department, department_en, location_id, role, total_score, avatar_url, created_at, last_active, shift_number, is_super_admin'
 
 function verifyAdminPin(pin: string) {
   const salt = process.env.ADMIN_PIN_SALT
@@ -17,7 +28,7 @@ function verifyAdminPin(pin: string) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { sap_id, pin, lookup, confirm } = await req.json()
+    const { sap_id, pin, lookup, confirm, register_guest, first_name, last_name } = await req.json()
     const normalizedSapId = String(sap_id ?? '').trim()
 
     if (!normalizedSapId) {
@@ -35,9 +46,31 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = createAdminClient()
+
+    if (register_guest) {
+      const lastName = cleanNamePart(last_name), firstName = cleanNamePart(first_name)
+      if (!validSapNumber(normalizedSapId)) return NextResponse.json({ error: 'SAP дугаар буруу байна' }, { status: 400 })
+      if (!validNamePart(lastName) || !validNamePart(firstName)) return NextResponse.json({ error: 'Овог, нэрээ үсгээр зөв оруулна уу' }, { status: 400 })
+      const key = clientKey(req)
+      const window = guestSignups.get(key)
+      if (window && window.resetAt > Date.now() && window.count >= GUEST_LIMIT) return NextResponse.json({ error: 'Олон удаа бүртгүүллээ. Түр хүлээгээд дахин оролдоно уу.' }, { status: 429 })
+      const { data: taken, error: takenError } = await supabase.from('users').select('id').eq('sap_id', normalizedSapId).maybeSingle()
+      if (takenError) throw takenError
+      if (taken) return NextResponse.json({ error: 'Энэ SAP дугаар аль хэдийн бүртгэлтэй байна. Дахин нэвтэрч үзнэ үү.' }, { status: 409 })
+      const { data: created, error: createError } = await supabase.from('users')
+        .insert({ sap_id: normalizedSapId, name: guestFullName(lastName, firstName), department: GUEST_DEPARTMENT, role: 'driver', shift_number: null })
+        .select(USER_COLUMNS).single()
+      if (createError) {
+        if ((createError as { code?: string }).code === '23505') return NextResponse.json({ error: 'Энэ SAP дугаар аль хэдийн бүртгэлтэй байна. Дахин нэвтэрч үзнэ үү.' }, { status: 409 })
+        throw createError
+      }
+      guestSignups.set(key, window && window.resetAt > Date.now() ? { count: window.count + 1, resetAt: window.resetAt } : { count: 1, resetAt: Date.now() + GUEST_WINDOW_MS })
+      return attachSession(NextResponse.json({ user: created, requires_pin: false, guest: true }, { status: 201 }), created)
+    }
+
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, sap_id, name, name_en, department, department_en, location_id, role, total_score, avatar_url, created_at, last_active, shift_number, is_super_admin')
+      .select(USER_COLUMNS)
       .eq('sap_id', normalizedSapId)
       .maybeSingle()
 
@@ -47,7 +80,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (!user) {
-      return NextResponse.json({ error: 'SAP ID олдсонгүй' }, { status: 401 })
+      return NextResponse.json({ error: 'SAP ID олдсонгүй', not_found: true }, { status: 401 })
     }
 
     if (lookup) return NextResponse.json({ user, requires_pin: user.role === 'admin' })

@@ -162,3 +162,4 @@ button,input,select,textarea{font:inherit}button,a{-webkit-tap-highlight-color:t
 .bulk-box summary{cursor:pointer;font-weight:800;color:var(--blue)}
 .bulk-box textarea{margin:8px 0}
 .bulk-format{padding:10px 12px;border-radius:10px;background:#f4f7fb;font-size:12px;white-space:pre-wrap;overflow:auto}
+.guest-pill{margin-left:8px;vertical-align:middle}

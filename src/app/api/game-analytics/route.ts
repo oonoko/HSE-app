@@ -4,6 +4,7 @@ import { requireAdmin } from '@/lib/session'
 import { maxScoreFor } from '@/lib/game-sampling'
 import { analyzeGame, type GameAttemptLite } from '@/lib/game-analytics'
 import { SHIFT_NUMBERS } from '@/lib/shifts'
+import { GUEST_DEPARTMENT } from '@/lib/guest'
 
 export async function GET(req: NextRequest) {
   try {
@@ -17,7 +18,7 @@ export async function GET(req: NextRequest) {
     const shift = !admin.is_super_admin && admin.shift_number ? admin.shift_number : requested
     const supabase = createAdminClient()
 
-    let driversQuery = supabase.from('users').select('id, sap_id, name, shift_number').eq('role', 'driver')
+    let driversQuery = supabase.from('users').select('id, sap_id, name, shift_number').eq('role', 'driver').neq('department', GUEST_DEPARTMENT)
     if (shift) driversQuery = driversQuery.eq('shift_number', shift)
     const [{ data: game, error: gameError }, { data: drivers, error: driversError }] = await Promise.all([
       supabase.from('safety_games').select('id, title, template, category, content').eq('id', gameId).single(),

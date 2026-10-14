@@ -3,6 +3,7 @@ import type { createAdminClient } from '@/lib/supabase/admin'
 import { fetchAnswersForAttempts } from '@/lib/quiz-results'
 import { buildDriverReport, type AnswerRecord, type GameAttemptRecord, type QuizAttemptRecord } from '@/lib/driver-report'
 import type { ShiftDriverReport } from '@/lib/shift-report'
+import { GUEST_DEPARTMENT } from '@/lib/guest'
 
 type Supabase = ReturnType<typeof createAdminClient>
 
@@ -22,7 +23,7 @@ async function pagedByUsers<T>(userIds: string[], page: (ids: string[], from: nu
 
 // shift = null means every driver (super admin only; callers enforce that).
 export async function loadShiftReports(supabase: Supabase, shift: number | null): Promise<ShiftDriverReport[]> {
-  const { data: everyone, error: everyoneError } = await supabase.from('users').select('id, sap_id, name, shift_number, total_score').eq('role', 'driver').order('total_score', { ascending: false })
+  const { data: everyone, error: everyoneError } = await supabase.from('users').select('id, sap_id, name, shift_number, total_score').eq('role', 'driver').neq('department', GUEST_DEPARTMENT).order('total_score', { ascending: false })
   if (everyoneError) throw everyoneError
   const all = everyone ?? []
   const drivers = shift ? all.filter(driver => driver.shift_number === shift) : all

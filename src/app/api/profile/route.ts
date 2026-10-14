@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getSession } from '@/lib/session'
+import { GUEST_DEPARTMENT } from '@/lib/guest'
 
 export async function GET(req: NextRequest) {
   try {
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest) {
       supabase.from('users').select('*').eq('id', userId).single(),
       supabase.from('quiz_attempts').select('*, quiz:daily_quizzes(title, topic, active_date)').eq('user_id', userId).eq('completed', true).order('completed_at', { ascending: false }),
       supabase.from('game_attempts').select('*, game:safety_games(title, template, category)').eq('user_id', userId).order('played_at', { ascending: false }),
-      supabase.from('users').select('id, total_score, shift_number').eq('role', 'driver').order('total_score', { ascending: false }),
+      supabase.from('users').select('id, total_score, shift_number').eq('role', 'driver').neq('department', GUEST_DEPARTMENT).order('total_score', { ascending: false }),
     ])
     if (userError) throw userError
     if (quizError) throw quizError

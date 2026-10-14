@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getSession, requireAdmin } from '@/lib/session'
 import { maxScoreFor } from '@/lib/game-sampling'
+import { GUEST_DEPARTMENT } from '@/lib/guest'
 
 async function getReport(req: NextRequest) {
   const admin = await requireAdmin()
@@ -15,7 +16,7 @@ async function getReport(req: NextRequest) {
   const end = new Date(`${date}T23:59:59+08:00`).toISOString()
   const supabase = createAdminClient()
 
-  let usersQuery = supabase.from('users').select('id, sap_id, name, shift_number').eq('role', 'driver')
+  let usersQuery = supabase.from('users').select('id, sap_id, name, shift_number').eq('role', 'driver').neq('department', GUEST_DEPARTMENT)
   if (shift) usersQuery = usersQuery.eq('shift_number', Number(shift))
   const [{ data: game, error: gameError }, { data: users, error: usersError }, { data: attempts, error: attemptsError }] = await Promise.all([
     supabase.from('safety_games').select('id, title, template, category').eq('id', gameId).single(),

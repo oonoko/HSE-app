@@ -7,6 +7,7 @@ import { useApp } from '@/lib/context'
 import Icon from '@/components/ui/Icon'
 import type { DailyQuiz, QuizAttempt } from '@/types'
 import { mongoliaDate } from '@/lib/date'
+import { isGuest } from '@/lib/guest'
 import { pushSupported, subscribeToPush } from '@/lib/push-client'
 
 function NotifyBanner() {
@@ -52,7 +53,7 @@ export default function TodayPage() {
   return (
     <div className="app-container page-enter">
       <section className="welcome-row">
-        <div><span className="eyebrow">ӨНӨӨДӨР</span><h1>Сайн байна уу, {user.name.split(' ')[0]}</h1><p>Өнөөдрийн мэдлэг шалгах асуумж</p></div>
+        <div><span className="eyebrow">ӨНӨӨДӨР</span><h1>Сайн байна уу, {isGuest(user) ? user.name.split(' ').slice(-1)[0] : user.name.split(' ')[0]}</h1><p>Өнөөдрийн мэдлэг шалгах асуумж</p></div>
         <div className="date-chip"><Icon name="calendar" size={18} /><span>{new Intl.DateTimeFormat('mn-MN', { month: 'short', day: 'numeric' }).format(new Date())}</span></div>
       </section>
 

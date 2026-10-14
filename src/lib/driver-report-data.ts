@@ -3,6 +3,7 @@ import type { createAdminClient } from '@/lib/supabase/admin'
 import type { SessionUser } from '@/lib/session'
 import { fetchAnswersForAttempts } from '@/lib/quiz-results'
 import { buildDriverReport, redactForDriver, type DriverReport, type GameAttemptRecord, type QuizAttemptRecord } from '@/lib/driver-report'
+import { GUEST_DEPARTMENT } from '@/lib/guest'
 
 type Supabase = ReturnType<typeof createAdminClient>
 
@@ -27,7 +28,7 @@ export async function loadDriverReport(supabase: Supabase, userId: string, viewe
     supabase.from('quiz_attempts').select('*, quiz:daily_quizzes(title, topic, active_date, pass_percent, max_attempts, questions)').eq('user_id', userId).order('started_at'),
     supabase.from('game_attempts').select('id, game_id, score, duration_seconds, played_at, game:safety_games(title, template)').eq('user_id', userId).order('played_at'),
     supabase.from('quiz_attendees').select('quiz_id, attempts_bonus').eq('user_id', userId),
-    supabase.from('users').select('id, total_score, shift_number').eq('role', 'driver').order('total_score', { ascending: false }),
+    supabase.from('users').select('id, total_score, shift_number').eq('role', 'driver').neq('department', GUEST_DEPARTMENT).order('total_score', { ascending: false }),
   ])
   if (attemptsError) throw attemptsError
   if (gamesError) throw gamesError

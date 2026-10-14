@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAdmin } from '@/lib/session'
 import { fetchAnswersForAttempts } from '@/lib/quiz-results'
 import { effectiveCorrect, pickFinalAttempts } from '@/lib/training'
+import { GUEST_DEPARTMENT } from '@/lib/guest'
 
 export async function GET(req: NextRequest) {
   try {
@@ -16,7 +17,7 @@ export async function GET(req: NextRequest) {
     const end = new Date(`${date}T23:59:59+08:00`).toISOString()
     const supabase = createAdminClient()
 
-    let usersQuery = supabase.from('users').select('id, sap_id, name, shift_number, total_score').eq('role', 'driver')
+    let usersQuery = supabase.from('users').select('id, sap_id, name, shift_number, total_score').eq('role', 'driver').neq('department', GUEST_DEPARTMENT)
     if (shift) usersQuery = usersQuery.eq('shift_number', Number(shift))
     let quizQuery = supabase.from('daily_quizzes').select('*').eq('active_date', date)
     if (quizId) quizQuery = quizQuery.eq('id', quizId)
