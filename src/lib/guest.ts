@@ -16,9 +16,9 @@ export function validNamePart(value: string): boolean {
   return value.length >= 1 && value.length <= 40 && NAME_PART.test(value)
 }
 
-// SAP numbers are digits only (the login field already strips everything else).
+// SAP numbers are digits only (the login field already strips everything else); length is not restricted beyond a sane bound.
 export function validSapNumber(value: string): boolean {
-  return /^\d{4,12}$/.test(value)
+  return /^\d{1,20}$/.test(value)
 }
 
 export function guestFullName(lastName: string, firstName: string): string {

@@ -16,8 +16,7 @@ describe('guest helpers', () => {
     expect(guestFullName('Дорж', 'Сүхээ')).toBe('Дорж Сүхээ')
   })
   it('validates SAP numbers', () => {
-    expect(validSapNumber('1234567')).toBe(true)
-    expect(validSapNumber('12')).toBe(false)
-    expect(validSapNumber('12ab')).toBe(false)
+    for (const ok of ['1234567', '12', '1', '000123', '12345678901234']) expect(validSapNumber(ok), ok).toBe(true)
+    for (const bad of ['', '12ab', ' 12', '1'.repeat(21)]) expect(validSapNumber(bad), bad).toBe(false)
   })
 })
