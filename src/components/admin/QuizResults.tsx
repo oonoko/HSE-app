@@ -111,10 +111,7 @@ export default function QuizResults({ id, embedded = false }: { id: string; embe
       </>}
     </div>
 
-    <section className="card res-section">
-      <h2>{training ? `Тэнцсэн хүмүүс (${passedRows.length})` : `Шалгалт өгсөн хүмүүс (${submittedRows.length})`}</h2>
-      {nameList.length === 0 ? <p className="hint-text">Одоогоор байхгүй.</p> : <ul className="passed-list">{nameList.map(row => <li key={row.user.id}>{row.user.name}<small>SAP {row.user.sap_id} · {shiftLabel(row.user.shift_number)}{row.final ? ` · ${row.final.percent}%` : ''}</small></li>)}</ul>}
-    </section>
+    <NameList title={training ? 'Тэнцсэн хүмүүс' : 'Шалгалт өгсөн хүмүүс'} rows={nameList} />
 
     <section className="card res-section">
       <h2>Оролцогчид</h2>
@@ -197,4 +194,45 @@ function ExportControl({ id, results, training, value, onChange }: { id: string;
       <a className="btn-primary" href={`/api/quizzes/${id}/export${query ? `?${query}` : ''}`}>Excel татах</a>
     </div>
   </div>
+}
+
+// A long list (70+ names) stays folded until asked for; once open it is searchable, filterable by shift and copyable.
+function NameList({ title, rows }: { title: string; rows: Row[] }) {
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const [shift, setShift] = useState('')
+  const [copied, setCopied] = useState(false)
+  const shifts = SHIFT_NUMBERS.filter(n => rows.some(row => row.user.shift_number === n))
+  const visible = useMemo(() => {
+    const needle = search.trim().toLowerCase()
+    return rows.filter(row => (!shift || String(row.user.shift_number) === shift) && (!needle || row.user.name.toLowerCase().includes(needle) || row.user.sap_id.includes(needle)))
+  }, [rows, search, shift])
+
+  async function copy() {
+    const text = visible.map((row, i) => `${i + 1}. ${row.user.name} (${row.user.sap_id})`).join('\n')
+    try { await navigator.clipboard.writeText(text) } catch {
+      const area = document.createElement('textarea'); area.value = text; document.body.appendChild(area); area.select(); document.execCommand('copy'); area.remove()
+    }
+    setCopied(true); setTimeout(() => setCopied(false), 1800)
+  }
+
+  return <section className="card res-section name-list">
+    <button type="button" className="name-list-head" aria-expanded={open} onClick={() => setOpen(value => !value)}>
+      <span><strong>{title}</strong><span className="name-count">{rows.length}</span></span>
+      <span className="name-toggle">{open ? 'Нуух' : 'Жагсаалт харах'}<i className={open ? 'up' : ''} /></span>
+    </button>
+    {open && (rows.length === 0 ? <p className="hint-text">Одоогоор байхгүй.</p> : <>
+      <div className="name-tools">
+        <input className="input-field" placeholder="Нэр эсвэл SAP хайх" value={search} onChange={e => setSearch(e.target.value)} />
+        {shifts.length > 1 && <select className="input-field" value={shift} onChange={e => setShift(e.target.value)}><option value="">Бүх ээлж</option>{shifts.map(n => <option key={n} value={n}>{shiftLabel(n)}</option>)}</select>}
+        <button type="button" className="btn-secondary" onClick={copy} disabled={visible.length === 0}>{copied ? 'Хуулагдлаа ✓' : 'Нэрсийг хуулах'}</button>
+      </div>
+      <p className="roster-count">{visible.length === rows.length ? `${rows.length} хүн` : `${visible.length} / ${rows.length} хүн харагдаж байна`}</p>
+      <ol className="name-rows">{visible.map((row, i) => <li key={row.user.id}>
+        <span className="name-no">{i + 1}</span>
+        <span className="name-main"><strong>{row.user.name}</strong><small>SAP {row.user.sap_id} · {shiftLabel(row.user.shift_number)}</small></span>
+        {row.final && <span className="name-pct">{row.final.percent}%</span>}
+      </li>)}{visible.length === 0 && <li className="name-empty">Хүн олдсонгүй</li>}</ol>
+    </>)}
+  </section>
 }

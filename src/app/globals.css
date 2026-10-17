@@ -195,3 +195,20 @@ button,input,select,textarea{font:inherit}button,a{-webkit-tap-highlight-color:t
 .export-control{display:grid;gap:8px;padding:12px;border:1px solid var(--line);border-radius:14px;background:#fbfcfe;min-width:min(100%,560px)}
 .export-row{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}.export-row label{display:grid;gap:4px;font-size:11px;font-weight:700;color:var(--muted)}
 .export-row .input-field{min-width:170px}.export-count{font-size:13px;margin-right:auto}
+
+/* ---- Foldable name list ---- */
+.name-list{padding:0!important;overflow:hidden}
+.name-list-head{width:100%;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 18px;border:0;background:transparent;text-align:left;font-size:16px;color:var(--ink)}
+.name-count{display:inline-block;margin-left:10px;padding:3px 10px;border-radius:99px;background:#e8f8f1;color:#0b6a40;font-size:13px;font-weight:800}
+.name-toggle{display:inline-flex;align-items:center;gap:8px;color:var(--blue);font-size:13px;font-weight:800;white-space:nowrap}
+.name-toggle i{width:8px;height:8px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);margin-top:-3px;transition:.18s}.name-toggle i.up{transform:rotate(-135deg);margin-top:3px}
+.name-tools{display:grid;grid-template-columns:1fr auto auto;gap:8px;padding:0 18px}
+.name-list .roster-count{padding:0 18px}
+.name-rows{list-style:none;margin:0;padding:0 8px 10px;max-height:70vh;overflow:auto}
+.name-rows li{display:flex;align-items:center;gap:12px;padding:11px 10px;border-bottom:1px solid #edf1f6}
+.name-rows li:last-child{border:0}
+.name-no{flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:#e8f8f1;color:#0b6a40;font-size:12px;font-weight:800}
+.name-main{flex:1;min-width:0}.name-main strong{display:block;font-size:14px;overflow-wrap:anywhere}.name-main small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+.name-pct{flex:none;font-size:13px;font-weight:800;color:#0b6a40}
+.name-empty{justify-content:center;color:var(--muted);font-size:13px}
+@media(max-width:700px){.name-tools{grid-template-columns:1fr}.name-tools .btn-secondary{width:100%}}
