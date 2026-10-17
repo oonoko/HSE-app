@@ -111,7 +111,7 @@ export default function QuizResults({ id, embedded = false }: { id: string; embe
       </>}
     </div>
 
-    <NameList title={training ? 'Тэнцсэн хүмүүс' : 'Шалгалт өгсөн хүмүүс'} rows={nameList} />
+    <NameList title={training ? 'Тэнцсэн хүмүүс' : 'Шалгалт өгсөн хүмүүс'} viewLabel={training ? 'Тэнцсэн хүмүүсийг харах' : 'Шалгалт өгсөн хүмүүсийг харах'} rows={nameList} />
 
     <section className="card res-section">
       <h2>Оролцогчид</h2>
@@ -197,7 +197,7 @@ function ExportControl({ id, results, training, value, onChange }: { id: string;
 }
 
 // A long list (70+ names) stays folded until asked for; once open it is searchable, filterable by shift and copyable.
-function NameList({ title, rows }: { title: string; rows: Row[] }) {
+function NameList({ title, viewLabel, rows }: { title: string; viewLabel: string; rows: Row[] }) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [shift, setShift] = useState('')
@@ -217,11 +217,12 @@ function NameList({ title, rows }: { title: string; rows: Row[] }) {
   }
 
   return <section className="card res-section name-list">
-    <button type="button" className="name-list-head" aria-expanded={open} onClick={() => setOpen(value => !value)}>
-      <span><strong>{title}</strong><span className="name-count">{rows.length}</span></span>
-      <span className="name-toggle">{open ? 'Нуух' : 'Жагсаалт харах'}<i className={open ? 'up' : ''} /></span>
-    </button>
-    {open && (rows.length === 0 ? <p className="hint-text">Одоогоор байхгүй.</p> : <>
+    <div className="name-list-head">
+      <strong>{title}</strong><span className="name-count">{rows.length}</span>
+    </div>
+    <div className="name-view-row"><button type="button" className={open ? 'btn-secondary' : 'btn-primary'} aria-expanded={open} onClick={() => setOpen(value => !value)} disabled={rows.length === 0}>{open ? 'Жагсаалтыг нуух' : viewLabel}</button></div>
+    {rows.length === 0 && <p className="hint-text" style={{ padding: '0 18px 16px' }}>Одоогоор байхгүй.</p>}
+    {open && rows.length > 0 && (<>
       <div className="name-tools">
         <input className="input-field" placeholder="Нэр эсвэл SAP хайх" value={search} onChange={e => setSearch(e.target.value)} />
         {shifts.length > 1 && <select className="input-field" value={shift} onChange={e => setShift(e.target.value)}><option value="">Бүх ээлж</option>{shifts.map(n => <option key={n} value={n}>{shiftLabel(n)}</option>)}</select>}
