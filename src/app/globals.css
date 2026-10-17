@@ -213,3 +213,7 @@ button,input,select,textarea{font:inherit}button,a{-webkit-tap-highlight-color:t
 .name-pct{flex:none;font-size:13px;font-weight:800;color:#0b6a40}
 .name-empty{justify-content:center;color:var(--muted);font-size:13px}
 @media(max-width:700px){.name-tools{grid-template-columns:1fr}.name-tools .btn-secondary{width:100%}}
+
+.people-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px}.people-head h2{margin:0}
+.name-count.neutral{background:#eef2f7;color:#5f6c7d}
+@media(max-width:700px){.people-head{display:grid}.people-head button{width:100%}}

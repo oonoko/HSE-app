@@ -36,6 +36,7 @@ export default function QuizResults({ id, embedded = false }: { id: string; embe
   const [attemptNo, setAttemptNo] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
   const [exportFilter, setExportFilter] = useState<ExportFilter>('all')
+  const [showPeople, setShowPeople] = useState(false)
 
   const load = useCallback(() => {
     fetch(`/api/quizzes/${id}/results`).then(async r => { const data = await r.json(); if (!r.ok) throw new Error(data.error); setResults(data.data) }).catch(err => setError(err.message))
@@ -114,13 +115,16 @@ export default function QuizResults({ id, embedded = false }: { id: string; embe
     <NameList title={training ? 'Тэнцсэн хүмүүс' : 'Шалгалт өгсөн хүмүүс'} viewLabel={training ? 'Тэнцсэн хүмүүсийг харах' : 'Шалгалт өгсөн хүмүүсийг харах'} rows={nameList} />
 
     <section className="card res-section">
-      <h2>Оролцогчид</h2>
+      <div className="people-head"><h2>Оролцогчид <span className="name-count neutral">{results.rows.length}</span></h2>
+        <button type="button" className={showPeople ? 'btn-secondary' : 'btn-primary'} aria-expanded={showPeople} onClick={() => setShowPeople(value => !value)}>{showPeople ? 'Жагсаалтыг нуух' : 'Оролцогчдыг харах'}</button></div>
+      {showPeople && <>
       <div className="res-filters">{FILTERS.filter(item => training || !['failed', 'locked'].includes(item.key)).map(item => <button key={item.key} className={filter === item.key ? 'on' : ''} onClick={() => setFilter(item.key)}>{item.label}</button>)}</div>
       <input className="input-field" placeholder="Нэр эсвэл SAP хайх" value={search} onChange={e => setSearch(e.target.value)} style={{ marginBottom: 12 }} />
       <div className="res-table-wrap"><table className="res-table"><thead><tr><th>Нэр</th><th>SAP</th><th>Ээлж</th><th>Төлөв</th><th>Оролдлого</th><th>Зөв / алдсан</th><th>Хувь</th></tr></thead>
         <tbody>{rows.length === 0 ? <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--muted)' }}>Хүн олдсонгүй</td></tr> : rows.map(row => <tr key={row.user.id} className="clickable" onClick={() => openDetails(row)}>
           <td><strong>{row.user.name}</strong></td><td>{row.user.sap_id}</td><td>{shiftLabel(row.user.shift_number)}</td><td><StatusPill status={row.status} /></td>
           <td>{row.attempts_used}/{row.attempts_allowed}</td><td>{row.final ? `${row.final.correct_count} / ${row.final.wrong_count}` : '—'}</td><td>{row.final ? `${row.final.percent}%` : '—'}</td></tr>)}</tbody></table></div>
+      </>}
     </section>
 
     {selected && <section className="card res-section">
