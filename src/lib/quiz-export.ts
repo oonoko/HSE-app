@@ -3,7 +3,7 @@ import type { QuizResults, ParticipantRow, AnswerDetail } from '@/lib/quiz-resul
 import { STATUS_LABELS, effectiveCorrect, overrideReasonLabel, type ParticipantStatus } from '@/lib/training'
 import { shiftLabel, shiftLabelShort } from '@/lib/shifts'
 import { addChartsToWorkbook, type ChartSpec } from '@/lib/xlsx-charts'
-import { filterLabel, filterResults, type ExportFilter } from '@/lib/quiz-filter'
+import { describeExtras, filterLabel, filterResults, type ExportExtras, type ExportFilter } from '@/lib/quiz-filter'
 
 const HEADER_FILL = 'FF164F99'
 const STATUS_STYLE: Record<ParticipantStatus, { fill: string; font: string; chart: string }> = {
@@ -46,8 +46,9 @@ function finalAnswers(results: QuizResults, row: ParticipantRow) {
   return byQuestion
 }
 
-export async function buildQuizWorkbook(fullResults: QuizResults, generatedAt = new Date(), filter: ExportFilter = 'all'): Promise<Buffer> {
-  const results = filterResults(fullResults, filter)
+export async function buildQuizWorkbook(fullResults: QuizResults, generatedAt = new Date(), filter: ExportFilter = 'all', extras: ExportExtras = {}): Promise<Buffer> {
+  const results = filterResults(fullResults, filter, extras)
+  const extraNotes = describeExtras(extras, shiftLabel)
   const { quiz, rows, counts, questionStats, training } = results
   const questions = quiz.questions
   const wb = new ExcelJS.Workbook()
@@ -69,6 +70,7 @@ export async function buildQuizWorkbook(fullResults: QuizResults, generatedAt = 
     ['Ирцээр бүртгэсэн', counts.roster],
     ['Тайлан гаргасан', stamp(generatedAt.toISOString())],
     ...(filter === 'all' ? [] : [['Шүүлтүүр', filterLabel(filter)] as [string, string]]),
+    ...(extraNotes.length ? [['Нэмэлт шүүлтүүр', extraNotes.join('; ')] as [string, string]] : []),
   ]
   info.forEach(([label, value], i) => {
     const row = summary.getRow(3 + i)
@@ -128,7 +130,7 @@ export async function buildQuizWorkbook(fullResults: QuizResults, generatedAt = 
   const passedRows = rows.filter(row => row.status === passedStatus)
   // A filtered file with nobody to list (e.g. "not given") skips this sheet instead of leaving an empty one.
   const passedSheet = wb.addWorksheet(training ? 'Тэнцсэн хүмүүс' : 'Өгсөн хүмүүс')
-  if (filter !== 'all' && passedRows.length === 0) wb.removeWorksheet(passedSheet.id)
+  if ((filter !== 'all' || extraNotes.length > 0) && passedRows.length === 0) wb.removeWorksheet(passedSheet.id)
   passedSheet.columns = [{ width: 6 }, { width: 12 }, { width: 30 }, { width: 14 }, { width: 14 }, { width: 14 }, { width: 20 }]
   passedSheet.getRow(1).values = ['№', 'SAP', 'Овог нэр', 'Ээлж', 'Оролдлого', 'Үр дүн %', 'Дууссан огноо']
   styleHeader(passedSheet.getRow(1))

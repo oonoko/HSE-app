@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { QuizResults } from './quiz-results'
-import { filterResults, parseExportFilter } from './quiz-filter'
+import { describeExtras, filterResults, parseExportFilter, parseLocalTime, parseShift } from './quiz-filter'
 
-const attempt = (id: string, n: number, completed: boolean, passed: boolean | null) => ({ id, attempt_number: n, completed, passed, percent: 0, correct_count: 0, wrong_count: 0, score: 0, started_at: '2026-10-01T03:00:00Z', completed_at: completed ? '2026-10-01T03:05:00Z' : null, overridden: 0 })
-const person = (id: string, status: QuizResults['rows'][number]['status'], attempts: ReturnType<typeof attempt>[]) => ({
-  user: { id, sap_id: id, name: id, shift_number: 1 }, in_roster: true, bonus: 0, status, attempts_used: attempts.filter(a => a.completed).length, attempts_allowed: 3,
+const attempt = (id: string, n: number, completed: boolean, passed: boolean | null, at = '2026-10-01T03:05:00Z') => ({ id, attempt_number: n, completed, passed, percent: 0, correct_count: 0, wrong_count: 0, score: 0, started_at: '2026-10-01T03:00:00Z', completed_at: completed ? at : null, overridden: 0 })
+const person = (id: string, status: QuizResults['rows'][number]['status'], attempts: ReturnType<typeof attempt>[], shift = 1) => ({
+  user: { id, sap_id: id, name: id, shift_number: shift }, in_roster: true, bonus: 0, status, attempts_used: attempts.filter(a => a.completed).length, attempts_allowed: 3,
   attempts, final: attempts.filter(a => a.completed).slice(-1)[0] ?? null,
 })
 const ans = (attempt_id: string, ok: boolean) => ({ attempt_id, question_id: 'q1', selected_index: ok ? 0 : 1, is_correct: ok, override_correct: null, override_reason: null, overridden_at: null, response_ms: 1000, points: ok ? 90 : 0 })
@@ -56,5 +56,52 @@ describe('parseExportFilter', () => {
     expect(parseExportFilter('passed')).toBe('passed')
     expect(parseExportFilter('hack')).toBe('all')
     expect(parseExportFilter(null)).toBe('all')
+  })
+})
+
+describe('shift and time filters', () => {
+  // 03:05 UTC = 11:05 Mongolia time on 2026-10-01
+  const timed: QuizResults = {
+    ...results,
+    rows: [
+      person('early', 'passed', [attempt('e1', 1, true, true, '2026-10-01T01:00:00Z')], 2),   // 09:00 local, shift 2
+      person('late', 'passed', [attempt('l1', 1, true, true, '2026-10-01T06:30:00Z')], 2),    // 14:30 local, shift 2
+      person('other', 'passed', [attempt('o1', 1, true, true, '2026-10-01T06:30:00Z')], 4),   // 14:30 local, shift 4
+      person('absent', 'not_started', [], 2),
+    ],
+    answers: [],
+  }
+  const names = (r: QuizResults) => r.rows.map(row => row.user.id)
+
+  it('parses Mongolian local times as UTC+8', () => {
+    expect(parseLocalTime('2026-10-01T09:00')).toBe(Date.parse('2026-10-01T01:00:00Z'))
+    expect(parseLocalTime('2026-10-01')).toBeNull()
+    expect(parseLocalTime('nonsense')).toBeNull()
+    expect(parseLocalTime('')).toBeNull()
+    expect(parseShift('4')).toBe(4)
+    expect(parseShift('0')).toBeNull()
+    expect(parseShift('abc')).toBeNull()
+  })
+  it('filters by shift', () => {
+    expect(names(filterResults(timed, 'all', { shift: 2 }))).toEqual(['early', 'late', 'absent'])
+    expect(names(filterResults(timed, 'all', { shift: 4 }))).toEqual(['other'])
+  })
+  it('"from" keeps people who finished at or after that local time', () => {
+    expect(names(filterResults(timed, 'all', { from: '2026-10-01T12:00' }))).toEqual(['late', 'other'])
+    expect(names(filterResults(timed, 'all', { from: '2026-10-01T09:00' }))).toEqual(['early', 'late', 'other'])
+    expect(names(filterResults(timed, 'all', { from: '2026-10-02T00:00' }))).toEqual([])
+  })
+  it('"to" and a window work, and combine with shift and status', () => {
+    expect(names(filterResults(timed, 'all', { to: '2026-10-01T10:00' }))).toEqual(['early'])
+    expect(names(filterResults(timed, 'all', { from: '2026-10-01T08:00', to: '2026-10-01T10:00' }))).toEqual(['early'])
+    expect(names(filterResults(timed, 'passed', { shift: 2, from: '2026-10-01T12:00' }))).toEqual(['late'])
+  })
+  it('people who never finished are excluded once a time is set', () => {
+    expect(names(filterResults(timed, 'not_given', { shift: 2 }))).toEqual(['absent'])
+    expect(names(filterResults(timed, 'not_given', { from: '2026-10-01T00:00' }))).toEqual([])
+  })
+  it('describes the extras for the workbook', () => {
+    expect(describeExtras({ shift: 4, from: '2026-10-01T09:00' }, n => `${n}-р ээлж`)).toEqual(['Ээлж: 4-р ээлж', '2026-10-01 09:00-аас хойш'])
+    expect(describeExtras({}, n => String(n))).toEqual([])
   })
 })

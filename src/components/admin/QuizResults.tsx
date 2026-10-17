@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { shiftLabel } from '@/lib/shifts'
+import { SHIFT_NUMBERS, shiftLabel } from '@/lib/shifts'
 import { OVERRIDE_REASONS, STATUS_LABELS, overrideReasonLabel, type ParticipantStatus } from '@/lib/training'
-import { EXPORT_FILTERS, type ExportFilter } from '@/lib/quiz-filter'
+import { EXPORT_FILTERS, filterResults, type ExportExtras, type ExportFilter } from '@/lib/quiz-filter'
 import type { DailyQuizQuestion } from '@/types'
 
 type AttemptDetail = { id: string; attempt_number: number; completed: boolean; passed: boolean | null; percent: number; correct_count: number; wrong_count: number; score: number; started_at: string; completed_at: string | null; overridden: number }
@@ -92,9 +92,9 @@ export default function QuizResults({ id, embedded = false }: { id: string; embe
   const currentAttempt = selected?.attempts.find(attempt => attempt.attempt_number === attemptNo) ?? null
 
   return <div className={embedded ? 'results-embedded' : 'app-container admin-page page-enter'}>
-    {embedded ? <div className="detail-head"><p className="hint-text">{training ? `Тэнцэх ${quiz.pass_percent}% · ${quiz.max_attempts} оролдлого` : 'Асуумжийн үр дүн'} — хүн дарж хариултыг нь засна.</p><ExportControl id={id} training={training} value={exportFilter} onChange={setExportFilter} /></div> :
+    {embedded ? <div className="detail-head"><p className="hint-text">{training ? `Тэнцэх ${quiz.pass_percent}% · ${quiz.max_attempts} оролдлого` : 'Асуумжийн үр дүн'} — хүн дарж хариултыг нь засна.</p><ExportControl id={id} results={results} training={training} value={exportFilter} onChange={setExportFilter} /></div> :
     <div className="page-heading-row"><div><span className="eyebrow">{training ? 'СУРГАЛТЫН ДАРААХ ШАЛГАЛТ' : 'АСУУМЖИЙН ҮР ДҮН'}</span><h1>{quiz.title}</h1><p>{quiz.active_date} · {quiz.target_shift ? shiftLabel(quiz.target_shift) : 'Бүх ээлж'}{training && ` · тэнцэх ${quiz.pass_percent}% · ${quiz.max_attempts} оролдлого`}</p></div>
-      <div className="list-actions"><Link className="btn-secondary" href="/admin/quizzes">Жагсаалт</Link><ExportControl id={id} training={training} value={exportFilter} onChange={setExportFilter} /></div></div>}
+      <div className="list-actions"><Link className="btn-secondary" href="/admin/quizzes">Жагсаалт</Link><ExportControl id={id} results={results} training={training} value={exportFilter} onChange={setExportFilter} /></div></div>}
     {error && <div className="form-error">{error}</div>}
 
     <div className="res-kpis">
@@ -169,10 +169,32 @@ function OverrideRow({ index, question, answer, overridden, effective, editable,
   </div>
 }
 
-function ExportControl({ id, training, value, onChange }: { id: string; training: boolean; value: ExportFilter; onChange: (value: ExportFilter) => void }) {
+function ExportControl({ id, results, training, value, onChange }: { id: string; results: Results; training: boolean; value: ExportFilter; onChange: (value: ExportFilter) => void }) {
+  const [shift, setShift] = useState('')
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
   const options = EXPORT_FILTERS.filter(item => training || !item.training)
+  const shiftsPresent = SHIFT_NUMBERS.filter(n => results.rows.some(row => row.user.shift_number === n))
+  const extras: ExportExtras = { shift: shift ? Number(shift) : null, from: from || null, to: to || null }
+  const count = filterResults(results as never, value, extras).rows.length
+  const params = new URLSearchParams()
+  if (value !== 'all') params.set('filter', value)
+  if (shift) params.set('shift', shift)
+  if (from) params.set('from', from)
+  if (to) params.set('to', to)
+  const query = params.toString()
+  const touched = !!(shift || from || to)
   return <div className="export-control">
-    <select className="input-field" value={value} onChange={e => onChange(e.target.value as ExportFilter)} aria-label="Excel-д оруулах хүмүүс">{options.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
-    <a className="btn-primary" href={`/api/quizzes/${id}/export${value === 'all' ? '' : `?filter=${value}`}`}>Excel татах</a>
+    <div className="export-row">
+      <label>Хэн<select className="input-field" value={value} onChange={e => onChange(e.target.value as ExportFilter)}>{options.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+      {shiftsPresent.length > 1 && <label>Ээлж<select className="input-field" value={shift} onChange={e => setShift(e.target.value)}><option value="">Бүх ээлж</option>{shiftsPresent.map(n => <option key={n} value={n}>{shiftLabel(n)}</option>)}</select></label>}
+      <label>Дуусгасан цагаас хойш<input type="datetime-local" className="input-field" value={from} onChange={e => setFrom(e.target.value)} /></label>
+      <label>Дуусгасан цагаас өмнө<input type="datetime-local" className="input-field" value={to} onChange={e => setTo(e.target.value)} /></label>
+    </div>
+    <div className="export-row">
+      <span className="export-count">Файлд орох хүн: <strong>{count}</strong>{(from || to) && ' · цагийг Монголын цагаар, шалгалтаа дуусгасан хүмүүсийг л тооцно'}</span>
+      {touched && <button type="button" className="text-button" onClick={() => { setShift(''); setFrom(''); setTo('') }}>Шүүлтүүр арилгах</button>}
+      <a className="btn-primary" href={`/api/quizzes/${id}/export${query ? `?${query}` : ''}`}>Excel татах</a>
+    </div>
   </div>
 }
