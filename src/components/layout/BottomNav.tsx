@@ -11,12 +11,14 @@ export default function BottomNav() {
   const driverItems = [
     { href: '/', icon: 'clipboard' as const, label: 'Өнөөдөр' },
     { href: '/games', icon: 'game' as const, label: 'Тоглоом' },
+    { href: '/hazards', icon: 'alert' as const, label: 'Аюул' },
     { href: '/leaderboard', icon: 'trophy' as const, label: 'Оноо' },
     { href: '/profile', icon: 'user' as const, label: 'Профайл' },
   ]
   const adminItems = [
     { href: '/admin/quizzes', icon: 'clipboard' as const, label: 'Асуумж' },
     { href: '/admin/games', icon: 'game' as const, label: 'Тоглоом' },
+    { href: '/admin/hazards', icon: 'alert' as const, label: 'Аюул' },
     { href: '/admin/dashboard', icon: 'dashboard' as const, label: 'Dashboard' },
     { href: '/admin/reports', icon: 'trophy' as const, label: 'Тайлан' },
     { href: '/admin/my-shift', icon: 'shift' as const, label: 'Ээлж' },
