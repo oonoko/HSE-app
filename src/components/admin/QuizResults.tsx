@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { shiftLabel } from '@/lib/shifts'
 import { OVERRIDE_REASONS, STATUS_LABELS, overrideReasonLabel, type ParticipantStatus } from '@/lib/training'
+import { EXPORT_FILTERS, type ExportFilter } from '@/lib/quiz-filter'
 import type { DailyQuizQuestion } from '@/types'
 
 type AttemptDetail = { id: string; attempt_number: number; completed: boolean; passed: boolean | null; percent: number; correct_count: number; wrong_count: number; score: number; started_at: string; completed_at: string | null; overridden: number }
@@ -34,6 +35,7 @@ export default function QuizResults({ id, embedded = false }: { id: string; embe
   const [detail, setDetail] = useState<Results | null>(null)
   const [attemptNo, setAttemptNo] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
+  const [exportFilter, setExportFilter] = useState<ExportFilter>('all')
 
   const load = useCallback(() => {
     fetch(`/api/quizzes/${id}/results`).then(async r => { const data = await r.json(); if (!r.ok) throw new Error(data.error); setResults(data.data) }).catch(err => setError(err.message))
@@ -90,9 +92,9 @@ export default function QuizResults({ id, embedded = false }: { id: string; embe
   const currentAttempt = selected?.attempts.find(attempt => attempt.attempt_number === attemptNo) ?? null
 
   return <div className={embedded ? 'results-embedded' : 'app-container admin-page page-enter'}>
-    {embedded ? <div className="detail-head"><p className="hint-text">{training ? `Тэнцэх ${quiz.pass_percent}% · ${quiz.max_attempts} оролдлого` : 'Асуумжийн үр дүн'} — хүн дарж хариултыг нь засна.</p><a className="btn-primary" href={`/api/quizzes/${id}/export`}>Excel татах</a></div> :
+    {embedded ? <div className="detail-head"><p className="hint-text">{training ? `Тэнцэх ${quiz.pass_percent}% · ${quiz.max_attempts} оролдлого` : 'Асуумжийн үр дүн'} — хүн дарж хариултыг нь засна.</p><ExportControl id={id} training={training} value={exportFilter} onChange={setExportFilter} /></div> :
     <div className="page-heading-row"><div><span className="eyebrow">{training ? 'СУРГАЛТЫН ДАРААХ ШАЛГАЛТ' : 'АСУУМЖИЙН ҮР ДҮН'}</span><h1>{quiz.title}</h1><p>{quiz.active_date} · {quiz.target_shift ? shiftLabel(quiz.target_shift) : 'Бүх ээлж'}{training && ` · тэнцэх ${quiz.pass_percent}% · ${quiz.max_attempts} оролдлого`}</p></div>
-      <div className="list-actions"><Link className="btn-secondary" href="/admin/quizzes">Жагсаалт</Link><a className="btn-primary" href={`/api/quizzes/${id}/export`}>Excel татах</a></div></div>}
+      <div className="list-actions"><Link className="btn-secondary" href="/admin/quizzes">Жагсаалт</Link><ExportControl id={id} training={training} value={exportFilter} onChange={setExportFilter} /></div></div>}
     {error && <div className="form-error">{error}</div>}
 
     <div className="res-kpis">
@@ -164,5 +166,13 @@ function OverrideRow({ index, question, answer, overridden, effective, editable,
       {effective ? <button className="btn-secondary" disabled={busy} onClick={() => onApply(false, reason)}>Буруу болгох</button> : <button className="btn-primary" disabled={busy} onClick={() => onApply(true, reason)}>Зөв болгох</button>}
       {overridden && <button className="text-button" disabled={busy} onClick={() => onApply(null, '')}>Буцаах</button>}
     </div>}
+  </div>
+}
+
+function ExportControl({ id, training, value, onChange }: { id: string; training: boolean; value: ExportFilter; onChange: (value: ExportFilter) => void }) {
+  const options = EXPORT_FILTERS.filter(item => training || !item.training)
+  return <div className="export-control">
+    <select className="input-field" value={value} onChange={e => onChange(e.target.value as ExportFilter)} aria-label="Excel-д оруулах хүмүүс">{options.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
+    <a className="btn-primary" href={`/api/quizzes/${id}/export${value === 'all' ? '' : `?filter=${value}`}`}>Excel татах</a>
   </div>
 }
