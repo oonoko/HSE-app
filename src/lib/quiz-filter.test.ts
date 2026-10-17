@@ -51,6 +51,18 @@ describe('filterResults', () => {
   })
 })
 
+describe('results without answers (as the results page loads them)', () => {
+  const { answers: _omit, ...summary } = results
+  const light = summary as unknown as QuizResults
+  it('still filters people and counts instead of crashing', () => {
+    expect(ids(filterResults(light, 'passed'))).toEqual(['passed'])
+    expect(ids(filterResults(light, 'all', { shift: 1 }))).toHaveLength(5)
+    const failed = filterResults(light, 'failed')
+    expect(failed.counts.participants).toBe(2)
+    expect(failed.answers).toEqual([])
+  })
+})
+
 describe('parseExportFilter', () => {
   it('falls back to all on unknown values', () => {
     expect(parseExportFilter('passed')).toBe('passed')

@@ -65,7 +65,8 @@ export function filterResults(results: QuizResults, filter: ExportFilter, extras
   })
   const rows = results.rows.filter(row => matchers[filter](row) && (!extras.shift || row.user.shift_number === extras.shift) && (from === null && to === null ? true : inWindow(row)))
   const attemptIds = new Set(rows.flatMap(row => row.attempts.map(attempt => attempt.id)))
-  const answers = results.answers.filter(answer => attemptIds.has(answer.attempt_id))
+  // The results page loads people without answers (they are fetched per person), so tolerate a missing list.
+  const answers = (results.answers ?? []).filter(answer => attemptIds.has(answer.attempt_id))
 
   const counts = { roster: results.counts.roster, participants: rows.length, passed: 0, failed: 0, locked: 0, in_progress: 0, not_started: 0, completed: 0 } as QuizResults['counts']
   for (const row of rows) counts[row.status as ParticipantStatus] += 1
