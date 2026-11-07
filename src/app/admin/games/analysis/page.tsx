@@ -24,7 +24,7 @@ function TimelineChart({ points, maxScore }: { points: Data['timeline']; maxScor
   const line = points.map((point, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(point.avgScore).toFixed(1)}`).join(' ')
   return <svg viewBox={`0 0 ${w} ${h}`} className="ga-chart" role="img" aria-label="Өдөр бүрийн дундаж оноо">
     {[0, .5, 1].map(f => <g key={f}><line x1={pad.l} x2={w - pad.r} y1={y(top * f)} y2={y(top * f)} stroke="#dce4ef" /><text x={pad.l - 6} y={y(top * f) + 4} textAnchor="end" fontSize="11" fill="#67748a">{Math.round(top * f)}</text></g>)}
-    <path d={line} fill="none" stroke="#164f99" strokeWidth="3" strokeLinejoin="round" />
+    <path d={line} fill="none" stroke="#1a63cf" strokeWidth="3" strokeLinejoin="round" />
     {points.map((point, i) => <g key={point.date}><circle cx={x(i)} cy={y(point.avgScore)} r="5" fill="#f15a24" /><text x={x(i)} y={y(point.avgScore) - 10} textAnchor="middle" fontSize="11" fontWeight="700" fill="#162033">{point.avgScore}</text><text x={x(i)} y={h - 10} textAnchor="middle" fontSize="11" fill="#67748a">{shortDate(point.date)}</text></g>)}
   </svg>
 }

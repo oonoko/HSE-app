@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useApp } from '@/lib/context'
 import Icon from '@/components/ui/Icon'
+import BusRoad from '@/components/ui/BusRoad'
+import CountUp from '@/components/ui/CountUp'
 import type { DailyQuiz, QuizAttempt } from '@/types'
 import { mongoliaDate } from '@/lib/date'
 import { isGuest } from '@/lib/guest'
@@ -57,6 +59,8 @@ export default function TodayPage() {
         <div className="date-chip"><Icon name="calendar" size={18} /><span>{new Intl.DateTimeFormat('mn-MN', { month: 'short', day: 'numeric' }).format(new Date())}</span></div>
       </section>
 
+      <section className="card bus-banner"><BusRoad caption="Аюулгүй зам · Аюулгүй аялал" /></section>
+
       <NotifyBanner />
 
       {loading ? <div className="empty-state"><span className="spinner" />Асуумжийг шалгаж байна...</div> : quizzes.length === 0 ? (
@@ -88,8 +92,8 @@ export default function TodayPage() {
       )}
 
       <section className="quick-stats">
-        <div className="metric-card"><span>Өнөөдөр өгсөн</span><strong>{completedToday.length}</strong></div>
-        <div className="metric-card"><span>Нийт оноо</span><strong>{user.total_score.toLocaleString()}</strong></div>
+        <div className="metric-card"><span>Өнөөдөр өгсөн</span><strong><CountUp value={completedToday.length} /></strong></div>
+        <div className="metric-card"><span>Нийт оноо</span><strong><CountUp value={user.total_score} /></strong></div>
       </section>
     </div>
   )

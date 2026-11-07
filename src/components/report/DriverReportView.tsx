@@ -3,6 +3,7 @@
 import { Fragment, useState } from 'react'
 import Link from 'next/link'
 import { shiftLabel } from '@/lib/shifts'
+import CountUp from '@/components/ui/CountUp'
 import { STATUS_LABELS, overrideReasonLabel } from '@/lib/training'
 import { PROGRESS_LABELS } from '@/lib/game-analytics'
 import { TREND_LABELS, type DriverReport, type Trend } from '@/lib/driver-report'
@@ -25,8 +26,8 @@ function PercentChart({ points }: { points: Array<{ label: string; value: number
   const line = points.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.value).toFixed(1)}`).join(' ')
   return <svg viewBox={`0 0 ${w} ${h}`} className="ga-chart" role="img" aria-label="Асуумж бүрийн зөв хариултын хувь">
     {[0, 50, 100].map(v => <g key={v}><line x1={pad.l} x2={w - pad.r} y1={y(v)} y2={y(v)} stroke="#dce4ef" /><text x={pad.l - 6} y={y(v) + 4} textAnchor="end" fontSize="11" fill="#67748a">{v}%</text></g>)}
-    <path d={line} fill="none" stroke="#164f99" strokeWidth="3" strokeLinejoin="round" />
-    {points.map((p, i) => <g key={i}><circle cx={x(i)} cy={y(p.value)} r="5" fill={i === points.length - 1 ? '#f15a24' : '#164f99'} /><text x={x(i)} y={y(p.value) - 10} textAnchor="middle" fontSize="11" fontWeight="700" fill="#162033">{p.value}%</text><text x={x(i)} y={h - 8} textAnchor="middle" fontSize="10" fill="#67748a">{p.label}</text></g>)}
+    <path d={line} fill="none" stroke="#1a63cf" strokeWidth="3" strokeLinejoin="round" />
+    {points.map((p, i) => <g key={i}><circle cx={x(i)} cy={y(p.value)} r="5" fill={i === points.length - 1 ? '#f15a24' : '#1a63cf'} /><text x={x(i)} y={y(p.value) - 10} textAnchor="middle" fontSize="11" fontWeight="700" fill="#162033">{p.value}%</text><text x={x(i)} y={h - 8} textAnchor="middle" fontSize="10" fill="#67748a">{p.label}</text></g>)}
   </svg>
 }
 
@@ -55,8 +56,8 @@ export default function DriverReportView({ data, mode, userId }: { data: DriverR
 
     <div className="kpi-grid">
       <div className={trendClass(report.overall)}><span>Ерөнхий дүгнэлт</span><strong>{TREND_LABELS[report.overall]}</strong></div>
-      <div><span>Асуумж өгсөн</span><strong>{q.count}</strong><small>{q.attemptsTotal} оролдлого · {q.retakes} дахин</small></div>
-      <div><span>Дундаж зөв хариулт</span><strong>{q.count ? `${q.avgPercent}%` : '—'}</strong></div>
+      <div><span>Асуумж өгсөн</span><strong><CountUp value={q.count} /></strong><small>{q.attemptsTotal} оролдлого · {q.retakes} дахин</small></div>
+      <div><span>Дундаж зөв хариулт</span><strong>{q.count ? <CountUp value={q.avgPercent} format={n => `${n}%`} /> : '—'}</strong></div>
       <div className={q.change === null ? '' : q.change >= 0 ? 'positive' : 'negative'}><span>Эхнээс сүүлд хүртэл</span><strong>{q.change === null ? '—' : `${signed(q.change)} оноо`}</strong><small>{q.firstPercent !== null && q.change !== null ? `${q.firstPercent}% → ${q.latestPercent}%` : ''}</small></div>
     </div>
 

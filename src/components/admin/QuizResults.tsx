@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { SHIFT_NUMBERS, shiftLabel } from '@/lib/shifts'
+import CountUp from '@/components/ui/CountUp'
 import { OVERRIDE_REASONS, STATUS_LABELS, overrideReasonLabel, type ParticipantStatus } from '@/lib/training'
 import { EXPORT_FILTERS, filterResults, type ExportExtras, type ExportFilter } from '@/lib/quiz-filter'
 import type { DailyQuizQuestion } from '@/types'
@@ -99,16 +100,16 @@ export default function QuizResults({ id, embedded = false }: { id: string; embe
     {error && <div className="form-error">{error}</div>}
 
     <div className="res-kpis">
-      {training && <div className="res-kpi"><small>Ирц</small><strong>{counts.roster || counts.participants}</strong></div>}
+      {training && <div className="res-kpi"><small>Ирц</small><strong><CountUp value={counts.roster || counts.participants} /></strong></div>}
       {training ? <>
-        <div className="res-kpi good"><small>Тэнцсэн</small><strong>{counts.passed}</strong></div>
-        <div className="res-kpi warn"><small>Тэнцээгүй</small><strong>{counts.failed}</strong></div>
-        <div className="res-kpi bad"><small>Түгжигдсэн</small><strong>{counts.locked}</strong></div>
-        <div className="res-kpi"><small>Өгөөгүй</small><strong>{counts.not_started + counts.in_progress}</strong></div>
+        <div className="res-kpi good"><small>Тэнцсэн</small><strong><CountUp value={counts.passed} /></strong></div>
+        <div className="res-kpi warn"><small>Тэнцээгүй</small><strong><CountUp value={counts.failed} /></strong></div>
+        <div className="res-kpi bad"><small>Түгжигдсэн</small><strong><CountUp value={counts.locked} /></strong></div>
+        <div className="res-kpi"><small>Өгөөгүй</small><strong><CountUp value={counts.not_started + counts.in_progress} /></strong></div>
       </> : <>
-        <div className="res-kpi"><small>Оролцогч</small><strong>{counts.participants}</strong></div>
-        <div className="res-kpi good"><small>Өгсөн</small><strong>{counts.completed}</strong></div>
-        <div className="res-kpi"><small>Өгөөгүй</small><strong>{counts.not_started + counts.in_progress}</strong></div>
+        <div className="res-kpi"><small>Оролцогч</small><strong><CountUp value={counts.participants} /></strong></div>
+        <div className="res-kpi good"><small>Өгсөн</small><strong><CountUp value={counts.completed} /></strong></div>
+        <div className="res-kpi"><small>Өгөөгүй</small><strong><CountUp value={counts.not_started + counts.in_progress} /></strong></div>
       </>}
     </div>
 

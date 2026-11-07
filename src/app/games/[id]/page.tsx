@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useApp } from '@/lib/context'
 import Icon from '@/components/ui/Icon'
+import CountUp from '@/components/ui/CountUp'
+import { haptics } from '@/lib/motion'
 import type { SafetyGame } from '@/types'
 import { generateCrossword, type PlacedWord } from '@/lib/crossword'
 import { POINTS_PER_ITEM, pickCrosswordWords, pickRandom, playCountOf } from '@/lib/game-sampling'
@@ -16,7 +18,7 @@ export default function GamePlayPage() {
   useEffect(() => { if (!ready) return; if (!user) { router.push('/login'); return } fetch('/api/games').then(r => r.json()).then(data => setGame((data.data ?? []).find((item: SafetyGame) => item.id === id) ?? null)) }, [ready, user, id, router])
   async function complete(finalScore: number) { if (!user || !game || done) return; setScore(finalScore); setDone(true); await fetch('/api/game-attempts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game_id: game.id, user_id: user.id, score: finalScore, duration_seconds: Math.round((Date.now() - started.current) / 1000) }) }) }
   if (!game) return <div className="empty-state"><span className="spinner" />Тоглоом ачааллаж байна...</div>
-  if (done) return <div className="app-container result-page page-enter"><div className="result-mark"><Icon name="trophy" size={38}/></div><span className="eyebrow">ТОГЛООМ ДУУССАН</span><h1>{score.toLocaleString()} оноо</h1><p>Энэ оноо таны нийт болон rank оноонд нэмэгдлээ.</p><div className="button-row"><button className="btn-quiet" onClick={() => router.push('/games')}>Тоглоом сонгох</button><button className="btn-primary" onClick={() => location.reload()}>Дахин тоглох</button></div></div>
+  if (done) return <div className="app-container result-page result-pass page-enter"><div className="confetti-burst result-confetti" aria-hidden="true">{Array.from({ length: 16 }).map((_, i) => <i key={i} style={{ '--i': i } as React.CSSProperties} />)}</div><div className="result-mark"><Icon name="trophy" size={38}/></div><span className="eyebrow">ТОГЛООМ ДУУССАН</span><h1><CountUp value={score} /> оноо</h1><p>Энэ оноо таны нийт болон rank оноонд нэмэгдлээ.</p><div className="button-row"><button className="btn-quiet" onClick={() => router.push('/games')}>Тоглоом сонгох</button><button className="btn-primary" onClick={() => location.reload()}>Дахин тоглох</button></div></div>
   return <div className="game-play page-enter"><div className="game-play-header"><button className="icon-button light" onClick={() => router.push('/games')}>←</button><div><span>{game.template === 'truth_false' ? 'Үнэн эсвэл худал' : game.template === 'match' ? 'Дүрэм тааруулах' : game.template === 'word_grid' ? 'Үгийн сүлжээ' : 'Random box'}</span><h1>{game.title}</h1></div><strong>{score}</strong></div>
     {game.template === 'word_grid' ? <CrosswordGame game={game} onComplete={complete}/> : <QuestionGame game={game} score={score} setScore={setScore} onComplete={complete}/>}</div>
 }
@@ -33,12 +35,13 @@ function QuestionGame({ game, score, setScore, onComplete }: { game: SafetyGame;
   function choose(correct: boolean) {
     if (feedback) return
     setFeedback(correct ? 'correct' : 'wrong')
+    if (correct) haptics.success(); else haptics.error()
     const nextScore = score + (correct ? POINTS_PER_ITEM : 0)
     setScore(nextScore)
     setTimeout(() => { if (index + 1 >= items.length) onComplete(nextScore); else { setIndex(index + 1); setFeedback(null); setBoxOpened(game.template !== 'random_box') } }, 1100)
   }
   const prompt = item.statement || item.prompt || item.left || ''
-  return <main className={`play-card ${feedback || ''}`}>
+  return <main className={`play-card ${feedback || ''}`} key={index}>
     <div className="play-progress"><span style={{ width: `${(index / items.length) * 100}%` }}/></div><span className="eyebrow">{index + 1} / {items.length}</span>
     {game.template === 'random_box' && !boxOpened ? <div className="random-box-stage"><button className="random-box" onClick={() => setBoxOpened(true)}><span>?</span><strong>Хайрцгийг нээх</strong></button></div> : <><h2>{prompt}</h2>
       <div className="play-actions">

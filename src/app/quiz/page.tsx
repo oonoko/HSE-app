@@ -5,6 +5,9 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import { useApp } from '@/lib/context'
 import Icon from '@/components/ui/Icon'
+import CountUp from '@/components/ui/CountUp'
+import BusProgress from '@/components/ui/BusProgress'
+import { haptics } from '@/lib/motion'
 import type { DailyQuiz, QuizAttempt, QuizMeta } from '@/types'
 
 type Feedback = { selected: number | null; correct: number; isCorrect: boolean; points: number; explanation: string; hidden?: boolean }
@@ -67,9 +70,10 @@ function QuizRunner() {
       const response = await fetch('/api/quiz-attempts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'answer', attempt_id: attempt.id, question_id: question.id, selected_index: selected, response_ms: responseMs }) })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error)
-      if (data.hidden) setFeedback({ selected, correct: -1, isCorrect: false, points: 0, explanation: '', hidden: true })
+      if (data.hidden) { haptics.tap(); setFeedback({ selected, correct: -1, isCorrect: false, points: 0, explanation: '', hidden: true }) }
       else {
         setScore(value => value + data.points)
+        if (data.data.is_correct) haptics.success(); else haptics.error()
         setFeedback({ selected, correct: data.correct_index, isCorrect: data.data.is_correct, points: data.points, explanation: data.explanation })
       }
       setTimeout(nextQuestion, 1500)
@@ -96,7 +100,7 @@ function QuizRunner() {
   return <div className="quiz-screen page-enter">
     <header className="quiz-top"><div><span className="eyebrow">{quiz.title}</span><strong>{index + 1} / {quiz.questions.length}</strong></div><div className={`timer-ring ${remaining <= 10 ? 'urgent' : ''}`}><span>{remaining}</span><small>сек</small></div></header>
     <div className="timer-track"><span style={{ width: `${(remaining / quiz.time_limit_seconds) * 100}%` }} /></div>
-    <main className="question-card">
+    <main className="question-card" key={index}>
       {question.image_url && <div className="question-image"><Image src={question.image_url} alt="Асуултын зураг" fill sizes="(max-width: 700px) 100vw, 700px" style={{ objectFit: 'cover' }} /></div>}
       <span className="question-number">АСУУЛТ {index + 1}</span><h1>{question.text}</h1>
       <div className="answer-list">{question.options.map((option, optionIndex) => {
@@ -113,7 +117,7 @@ function QuizRunner() {
       {feedback?.hidden && <div className="feedback-panel"><strong>Хариулт хүлээн авлаа</strong></div>}
       {feedback && !feedback.hidden && <div className={`feedback-panel ${feedback.isCorrect ? 'correct' : 'wrong'}`}><strong>{feedback.isCorrect ? `Зөв · +${feedback.points} оноо` : 'Буруу хариулт'}</strong>{feedback.explanation && <p>{feedback.explanation}</p>}</div>}
     </main>
-    <div className="quiz-progress"><span style={{ width: `${progress}%` }} /></div>
+    <BusProgress done={index + (feedback ? 1 : 0)} total={quiz.questions.length} />
   </div>
 }
 
@@ -125,11 +129,14 @@ function ResultView({ result, meta, onDone, onRetry, onHome }: { result: QuizAtt
   const passed = training && !!meta?.passed
   const canRetry = training && !passed && !!meta && meta.attempts_left > 0
   const exhausted = training && !passed && !!meta && meta.attempts_left <= 0
-  return <div className="app-container result-page page-enter">
+  const good = training ? passed : true
+  useEffect(() => { if (good) haptics.success() }, [good])
+  return <div className={`app-container result-page page-enter ${good ? 'result-pass' : ''}`}>
+    {good && <div className="confetti-burst result-confetti" aria-hidden="true">{Array.from({ length: 16 }).map((_, i) => <i key={i} style={{ '--i': i } as React.CSSProperties} />)}</div>}
     <div className={`result-mark ${training ? (passed ? 'result-pass-mark' : 'result-fail-mark') : ''}`}><Icon name={training && !passed ? 'lock' : 'check'} size={42} /></div>
     <span className="eyebrow">{training ? (passed ? 'ТЭНЦЛЭЭ' : 'ТЭНЦЭЭГҮЙ') : 'АСУУМЖ ДУУССАН'}</span>
-    {training ? <><h1>{answerPercent}%</h1><p>Зөв хариулт {result.correct_count}/{total} · тэнцэх хувь {meta?.pass_percent}%</p>{meta && <span className="attempt-chip">Оролдлого: {meta.attempts_used}/{meta.attempts_allowed}</span>}</>
-      : <><h1>{result.score.toLocaleString()} оноо</h1><p>Боломжит онооны {percent}%</p></>}
+    {training ? <><h1><CountUp value={answerPercent} format={n => `${n}%`} /></h1><p>Зөв хариулт {result.correct_count}/{total} · тэнцэх хувь {meta?.pass_percent}%</p>{meta && <span className="attempt-chip">Оролдлого: {meta.attempts_used}/{meta.attempts_allowed}</span>}</>
+      : <><h1><CountUp value={result.score} /> оноо</h1><p>Боломжит онооны {percent}%</p></>}
     <div className="result-grid"><div><small>Зөв</small><strong>{result.correct_count}</strong></div><div><small>Алдсан</small><strong>{result.wrong_count}</strong></div><div><small>Хугацаа</small><strong>{result.total_time_seconds} сек</strong></div></div>
     {exhausted && <div className="locked-notice">Таны бүх оролдлого дууссан. <strong>Ахин сургалтад суугаад</strong> HSE-ийн ажилтнаас шинэ оролдлого нээлгэнэ үү.</div>}
     {canRetry && <div className="locked-notice" style={{ background: '#fff8ec', borderColor: '#f3d9a4', color: '#8a5a00' }}>Тэнцсэнгүй. Танд {meta!.attempts_left} оролдлого үлдсэн байна.</div>}

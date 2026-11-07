@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { useApp } from '@/lib/context'
 import Icon from '@/components/ui/Icon'
+import BusRoad from '@/components/ui/BusRoad'
 import type { User } from '@/types'
 
 export default function LoginPage() {
@@ -91,6 +92,7 @@ export default function LoginPage() {
       <div className="login-brand">
         <Image src="/brand/logo.jpg" alt="Ханбогд Хурд" width={210} height={210} priority className="login-logo" />
         <p>Жолоочийн аюулгүй ажиллагааны сургалт</p>
+        <BusRoad tone="dark" />
       </div>
 
       <section className="login-card">
