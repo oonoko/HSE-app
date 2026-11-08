@@ -56,7 +56,7 @@ export default function NewHazardPage() {
     if (!category) { setError('Ангилалаа сонгоно уу'); return }
     setSubmitting(true); setError('')
     try {
-      const response = await fetch('/api/hazard-reports', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind, category, severity, location_text: location, ...(coords ?? {}), description, image_urls: photos, anonymous }) })
+      const response = await fetch('/api/hazard-reports', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind, category, severity, location_text: `OT-${location.trim().replace(/^OT[-\s]*/i, '')}`, ...(coords ?? {}), description, image_urls: photos, anonymous }) })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error)
       router.push('/hazards')
@@ -76,7 +76,7 @@ export default function NewHazardPage() {
       <div className="sev-grid">{HAZARD_SEVERITIES.map(item => <button type="button" key={item.value} className={`${severity === item.value ? 'on' : ''} hz-sev-${item.value}`} onClick={() => setSeverity(item.value)}>{item.label}</button>)}</div>
 
       <label className="field-label">Байршил</label>
-      <input className="input-field" value={location} onChange={e => setLocation(e.target.value)} placeholder="Жишээ: Тавантолгой, 3-р замын 12 км" maxLength={200} required />
+      <div className="location-input"><span className="location-prefix">OT-</span><input className="input-field" value={location} onChange={e => setLocation(e.target.value)} placeholder="Жишээ: Мазаалай" maxLength={190} required /></div>
       <div className="locate-row"><button type="button" className="btn-secondary" onClick={locate} disabled={locating}>{locating ? 'Байршил авч байна...' : coords ? 'Байршлыг дахин авах' : 'Миний байршлыг авах'}</button>{coords && <small>✓ {coords.latitude}, {coords.longitude}</small>}</div>
 
       <label className="field-label">Юу болсон бэ? Юу анзаарсан бэ?</label>
